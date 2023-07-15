@@ -11,7 +11,10 @@ vignette: >
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  eval=FALSE
+  eval=FALSE,
+  dpi=200,
+  fig.width = 14,
+  fig.height = 8
 )
 ```
 
@@ -37,15 +40,6 @@ library(ggsci)
 library(RSQLite)
 library(here)
 library(llfsRnaseq)
-
-knitr::opts_chunk$set(
-  cache=TRUE,
-  include=FALSE,
-  echo=FALSE,
-  dpi=200,
-  fig.width = 14,
-  fig.height = 8
-)
 
 # set ggplot global options
 theme_set(theme_minimal())

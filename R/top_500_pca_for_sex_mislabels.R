@@ -1,4 +1,3 @@
-#'
 #' Use the top 500 most variable genes to calculate PCs and infer sex
 #'
 #' @description it happens that the variation int he top 500 most variable

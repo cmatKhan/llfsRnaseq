@@ -1,4 +1,4 @@
-url: https://cmatkhan.github.io/LLFS_RNAseq_dataprocessing
+url: https://github.com/cmatKhan/llfsRnaseq
 
 template:
   params:
@@ -45,6 +45,9 @@ navbar:
     llfs:
       test: LLFS
       href: https://longlifefamilystudy.wustl.edu
+    github:
+      icon: fa-github fa-lg
+      href: https://github.com/cmatKhan/llfsRnaseq
 
 reference:
 - title: Handling Raw Data

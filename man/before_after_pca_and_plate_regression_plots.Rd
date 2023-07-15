@@ -2,7 +2,7 @@
 % Please edit documentation in R/before_after_pca_and_plate_regression_plots.R
 \name{before_after_pca_and_plate_regression_plots}
 \alias{before_after_pca_and_plate_regression_plots}
-\title{FUNCTION_TITLE}
+\title{Before and After PCA and Plate Regression Plots}
 \usage{
 before_after_pca_and_plate_regression_plots(
   counts,
@@ -37,5 +37,5 @@ the order which the PCs are plotted}
 A list that includes plots and data
 }
 \description{
-FUNCTION_DESCRIPTION
+Show the effect of regressing out plate effects on the PCs
 }

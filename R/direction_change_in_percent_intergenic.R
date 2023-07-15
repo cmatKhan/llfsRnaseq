@@ -1,4 +1,3 @@
-#'
 #' make a plot showing the direction of percent intergenic on PC1/2 axis
 #'
 #' @param pca_df_list list of PCA dfs

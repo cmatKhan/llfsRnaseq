@@ -1,5 +1,5 @@
 ---
-title: "The LLFS RNAseq Database"
+title: "database-overview"
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{database-overview}

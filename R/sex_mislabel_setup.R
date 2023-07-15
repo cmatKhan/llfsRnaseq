@@ -1,4 +1,3 @@
-#'
 #' set up the QC notebook with the data sets which are used throughout
 #'
 #' @param dds_rds_path path to a dds object, either gene or transcript counts

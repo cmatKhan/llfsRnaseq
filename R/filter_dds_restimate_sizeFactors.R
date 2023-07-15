@@ -1,4 +1,3 @@
-#'
 #' Apply boolean vector filtering on the columns and/or rows and return
 #' filtered DDS object with size factors
 #'

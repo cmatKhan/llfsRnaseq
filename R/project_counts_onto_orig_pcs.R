@@ -1,4 +1,3 @@
-#'
 #' Project counts, presumably with some effect removed, onto different
 #' PCs
 #'

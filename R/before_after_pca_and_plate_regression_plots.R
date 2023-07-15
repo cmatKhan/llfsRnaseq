@@ -1,5 +1,6 @@
-#' @title FUNCTION_TITLE
-#' @description FUNCTION_DESCRIPTION
+#' @title Before and After PCA and Plate Regression Plots
+#' @description Show the effect of regressing out plate effects on the PCs
+#'
 #' @param counts log normalized "counts"
 #' @param pca_basis_data data from which to create the PCA basis vectors
 #' @param x_pc which PC to plot on the x axis

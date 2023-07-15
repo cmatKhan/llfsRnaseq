@@ -42,6 +42,6 @@ Suggests:
     tidyverse (>= 2.0.0),
     tximport (>= 1.28.0),
     vroom (>= 1.6.3)
-URL: https://cmatkhan.github.io/llfsRnaseq/
+URL: https://github.com/cmatKhan/llfsRnaseq
 VignetteBuilder: knitr
 LazyData: true
