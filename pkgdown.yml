@@ -1,0 +1,18 @@
+pandoc: 2.19.2
+pkgdown: 2.0.7
+pkgdown_sha: ~
+articles:
+  batch-effects: batch-effects.html
+  create-samplesheet: create-samplesheet.html
+  creating-a-release: creating-a-release.html
+  database-overview: database-overview.html
+  expression-qc: expression-qc.html
+  import-quantification-data: import-quantification-data.html
+  llfsRnaseq: llfsRnaseq.html
+  sex-label-check: sex-label-check.html
+  shared-data-overview: shared-data-overview.html
+last_built: 2023-07-15T00:56Z
+urls:
+  reference: https://cmatkhan.github.io/LLFS_RNAseq_dataprocessing/reference
+  article: https://cmatkhan.github.io/LLFS_RNAseq_dataprocessing/articles
+
