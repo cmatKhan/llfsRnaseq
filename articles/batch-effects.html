@@ -98,7 +98,14 @@
   <a href="https://longlifefamilystudy.wustl.edu" class="external-link"></a>
 </li>
       </ul>
-<ul class="nav navbar-nav navbar-right"></ul>
+<ul class="nav navbar-nav navbar-right">
+<li>
+  <a href="https://github.com/cmatKhan/llfsRnaseq">
+    <span class="fa fa-github fa-lg"></span>
+     
+  </a>
+</li>
+      </ul>
 </div>
 <!--/.nav-collapse -->
   </div>
@@ -114,7 +121,7 @@
       <h1 data-toc-skip>batch-effects</h1>
             
       
-      
+      <small class="dont-index">Source: <a href="https://github.com/cmatKhan/llfsRnaseq/blob/HEAD/vignettes/batch-effects.Rmd"><code>vignettes/batch-effects.Rmd</code></a></small>
       <div class="hidden name"><code>batch-effects.Rmd</code></div>
 
     </div>
@@ -142,16 +149,7 @@ database for new samples.</p>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://nanx.me/ggsci/" class="external-link">ggsci</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://rsqlite.r-dbi.org" class="external-link">RSQLite</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://here.r-lib.org/" class="external-link">here</a></span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://cmatkhan.github.io/llfsRnaseq/" class="external-link">llfsRnaseq</a></span><span class="op">)</span></span>
-<span></span>
-<span><span class="fu">knitr</span><span class="fu">::</span><span class="va"><a href="https://rdrr.io/pkg/knitr/man/opts_chunk.html" class="external-link">opts_chunk</a></span><span class="op">$</span><span class="fu">set</span><span class="op">(</span></span>
-<span>  cache<span class="op">=</span><span class="cn">TRUE</span>,</span>
-<span>  include<span class="op">=</span><span class="cn">FALSE</span>,</span>
-<span>  echo<span class="op">=</span><span class="cn">FALSE</span>,</span>
-<span>  dpi<span class="op">=</span><span class="fl">200</span>,</span>
-<span>  fig.width <span class="op">=</span> <span class="fl">14</span>,</span>
-<span>  fig.height <span class="op">=</span> <span class="fl">8</span></span>
-<span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/cmatKhan/llfsRnaseq">llfsRnaseq</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># set ggplot global options</span></span>
 <span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/theme_get.html" class="external-link">theme_set</a></span><span class="op">(</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggtheme.html" class="external-link">theme_minimal</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>

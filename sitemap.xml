@@ -1,84 +1,84 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://cmatkhan.github.io/LLFS_RNAseq_dataprocessing/404.html</loc>
+    <loc>https://github.com/cmatKhan/llfsRnaseq/404.html</loc>
   </url>
   <url>
-    <loc>https://cmatkhan.github.io/LLFS_RNAseq_dataprocessing/LICENSE.html</loc>
+    <loc>https://github.com/cmatKhan/llfsRnaseq/LICENSE.html</loc>
   </url>
   <url>
-    <loc>https://cmatkhan.github.io/LLFS_RNAseq_dataprocessing/articles/batch-effects.html</loc>
+    <loc>https://github.com/cmatKhan/llfsRnaseq/articles/batch-effects.html</loc>
   </url>
   <url>
-    <loc>https://cmatkhan.github.io/LLFS_RNAseq_dataprocessing/articles/create-samplesheet.html</loc>
+    <loc>https://github.com/cmatKhan/llfsRnaseq/articles/create-samplesheet.html</loc>
   </url>
   <url>
-    <loc>https://cmatkhan.github.io/LLFS_RNAseq_dataprocessing/articles/creating-a-release.html</loc>
+    <loc>https://github.com/cmatKhan/llfsRnaseq/articles/creating-a-release.html</loc>
   </url>
   <url>
-    <loc>https://cmatkhan.github.io/LLFS_RNAseq_dataprocessing/articles/database-overview.html</loc>
+    <loc>https://github.com/cmatKhan/llfsRnaseq/articles/database-overview.html</loc>
   </url>
   <url>
-    <loc>https://cmatkhan.github.io/LLFS_RNAseq_dataprocessing/articles/expression-qc.html</loc>
+    <loc>https://github.com/cmatKhan/llfsRnaseq/articles/expression-qc.html</loc>
   </url>
   <url>
-    <loc>https://cmatkhan.github.io/LLFS_RNAseq_dataprocessing/articles/import-quantification-data.html</loc>
+    <loc>https://github.com/cmatKhan/llfsRnaseq/articles/import-quantification-data.html</loc>
   </url>
   <url>
-    <loc>https://cmatkhan.github.io/LLFS_RNAseq_dataprocessing/articles/index.html</loc>
+    <loc>https://github.com/cmatKhan/llfsRnaseq/articles/index.html</loc>
   </url>
   <url>
-    <loc>https://cmatkhan.github.io/LLFS_RNAseq_dataprocessing/articles/llfsRnaseq.html</loc>
+    <loc>https://github.com/cmatKhan/llfsRnaseq/articles/llfsRnaseq.html</loc>
   </url>
   <url>
-    <loc>https://cmatkhan.github.io/LLFS_RNAseq_dataprocessing/articles/sex-label-check.html</loc>
+    <loc>https://github.com/cmatKhan/llfsRnaseq/articles/sex-label-check.html</loc>
   </url>
   <url>
-    <loc>https://cmatkhan.github.io/LLFS_RNAseq_dataprocessing/articles/shared-data-overview.html</loc>
+    <loc>https://github.com/cmatKhan/llfsRnaseq/articles/shared-data-overview.html</loc>
   </url>
   <url>
-    <loc>https://cmatkhan.github.io/LLFS_RNAseq_dataprocessing/authors.html</loc>
+    <loc>https://github.com/cmatKhan/llfsRnaseq/authors.html</loc>
   </url>
   <url>
-    <loc>https://cmatkhan.github.io/LLFS_RNAseq_dataprocessing/index.html</loc>
+    <loc>https://github.com/cmatKhan/llfsRnaseq/index.html</loc>
   </url>
   <url>
-    <loc>https://cmatkhan.github.io/LLFS_RNAseq_dataprocessing/news/index.html</loc>
+    <loc>https://github.com/cmatKhan/llfsRnaseq/news/index.html</loc>
   </url>
   <url>
-    <loc>https://cmatkhan.github.io/LLFS_RNAseq_dataprocessing/reference/batch_effect_qc_setup.html</loc>
+    <loc>https://github.com/cmatKhan/llfsRnaseq/reference/batch_effect_qc_setup.html</loc>
   </url>
   <url>
-    <loc>https://cmatkhan.github.io/LLFS_RNAseq_dataprocessing/reference/before_after_pca_and_plate_regression_plots.html</loc>
+    <loc>https://github.com/cmatKhan/llfsRnaseq/reference/before_after_pca_and_plate_regression_plots.html</loc>
   </url>
   <url>
-    <loc>https://cmatkhan.github.io/LLFS_RNAseq_dataprocessing/reference/combine_txi_objects.html</loc>
+    <loc>https://github.com/cmatKhan/llfsRnaseq/reference/combine_txi_objects.html</loc>
   </url>
   <url>
-    <loc>https://cmatkhan.github.io/LLFS_RNAseq_dataprocessing/reference/direction_change_in_percent_intergenic.html</loc>
+    <loc>https://github.com/cmatKhan/llfsRnaseq/reference/direction_change_in_percent_intergenic.html</loc>
   </url>
   <url>
-    <loc>https://cmatkhan.github.io/LLFS_RNAseq_dataprocessing/reference/filter_dds_restimate_sizeFactors.html</loc>
+    <loc>https://github.com/cmatKhan/llfsRnaseq/reference/filter_dds_restimate_sizeFactors.html</loc>
   </url>
   <url>
-    <loc>https://cmatkhan.github.io/LLFS_RNAseq_dataprocessing/reference/index.html</loc>
+    <loc>https://github.com/cmatKhan/llfsRnaseq/reference/index.html</loc>
   </url>
   <url>
-    <loc>https://cmatkhan.github.io/LLFS_RNAseq_dataprocessing/reference/pca_sex_qc.html</loc>
+    <loc>https://github.com/cmatKhan/llfsRnaseq/reference/pca_sex_qc.html</loc>
   </url>
   <url>
-    <loc>https://cmatkhan.github.io/LLFS_RNAseq_dataprocessing/reference/pipe.html</loc>
+    <loc>https://github.com/cmatKhan/llfsRnaseq/reference/pipe.html</loc>
   </url>
   <url>
-    <loc>https://cmatkhan.github.io/LLFS_RNAseq_dataprocessing/reference/project_counts_onto_orig_pcs.html</loc>
+    <loc>https://github.com/cmatKhan/llfsRnaseq/reference/project_counts_onto_orig_pcs.html</loc>
   </url>
   <url>
-    <loc>https://cmatkhan.github.io/LLFS_RNAseq_dataprocessing/reference/remove_parameter_effects.html</loc>
+    <loc>https://github.com/cmatKhan/llfsRnaseq/reference/remove_parameter_effects.html</loc>
   </url>
   <url>
-    <loc>https://cmatkhan.github.io/LLFS_RNAseq_dataprocessing/reference/sex_mislabel_setup.html</loc>
+    <loc>https://github.com/cmatKhan/llfsRnaseq/reference/sex_mislabel_setup.html</loc>
   </url>
   <url>
-    <loc>https://cmatkhan.github.io/LLFS_RNAseq_dataprocessing/reference/top_500_pca_for_sex_mislabels.html</loc>
+    <loc>https://github.com/cmatKhan/llfsRnaseq/reference/top_500_pca_for_sex_mislabels.html</loc>
   </url>
 </urlset>
