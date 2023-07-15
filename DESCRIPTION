@@ -1,0 +1,44 @@
+Package: llfsRnaseq
+Title: A collection of scripts and documentation related to processing LLFS RNAseq data
+Version: 1.0.0
+Authors@R: 
+    person("Chase", "Mateusiak", , "chasem@wustl.edu", role = c("aut", "cre"),
+           comment = c(ORCID = "https://orcid.org/0000-0002-2890-4242"))
+Description: This is the same share_llfs_data that I have previously been 
+  distributing. However, rather than taring up the project and distributing it 
+  that way, I am now going to distribute the data directory through Drive, and 
+  keep code here. There is exactly nothing in the code that reveals anything 
+  about the LLFS data. This simply provides a more user-friendly way of 
+  documenting how this data is generated, and a formally versioned controlled 
+  setting in which to keep a record of how the data is processed.
+License: GPL (>= 3)
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.2.3
+biocViews:
+Imports: 
+    broom (>= 1.0.3),
+    DESeq2 (>= 1.38.3),
+    dplyr,
+    edgeR,
+    ggplot2 (>= 3.4.1),
+    here (>= 1.0.1),
+    purrr (>= 1.0.1),
+    rtracklayer (>= 1.58.0),
+    stringr (>= 1.5.0),
+    tximport (>= 1.26.1),
+    vroom (>= 1.6.1)
+Depends: 
+    R (>= 2.10),
+    tidyverse (>= 2.0.0)
+Suggests: 
+    caret (>= 6.0.94),
+    ggrepel (>= 0.9.3),
+    knitr,
+    readxl (>= 1.4.2),
+    rmarkdown,
+    RSQLite (>= 2.3.1),
+    styler (>= 1.10.1)
+URL: https://cmatkhan.github.io/llfsRnaseq/
+VignetteBuilder: knitr
+LazyData: true

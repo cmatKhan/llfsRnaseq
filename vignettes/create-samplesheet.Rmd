@@ -1,0 +1,120 @@
+---
+title: "create-samplesheet"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{create-samplesheet}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval=FALSE
+)
+```
+
+# Create nf-core/rnaseq samplesheet
+
+Per a request from 2021, MGI includes a `tsv` version of the Demux_samplesheet 
+in the batches of RNAseq that they return to us. I use this Demux_samplesheet 
+to create the nf-core/rnaseq samplesheet input.
+
+```{r}
+library(tidyverse)
+library(here)
+
+# control output ---------------------------------------------------------------
+WRITE_OUT = TRUE
+LOCAL = FALSE
+
+# set variables ----------------------------------------------------------------
+BATCH = "s6420"
+
+FASTQ_DIR = "s6420"
+
+# read in mgi metadata ---------------------------------------------------------
+stopifnot(str_detect(FASTQ_DIR, BATCH))
+
+DEMUX_PREFIX = "demux_table_"
+LOCAL_FASTQ_PREFIX = file.path(
+  "/mnt/scratch/llfs_rnaseq_dataprocessing/llfs_rna_pipeline/data",
+  FASTQ_DIR)
+
+OUT_FASTQ_PREFIX = file.path(
+  "/scratch/mblab/chasem/llfs_rnaseq_dataprocessing/llfs_rna_pipeline/data",
+  FASTQ_DIR)
+
+
+demux_table_path = file.path(LOCAL_FASTQ_PREFIX,
+                             "Demux_Summary_Table.txt")
+
+stopifnot(file.exists(demux_table_path))
+
+demux_table = read_tsv(demux_table_path)
+
+# create fastq lookup ----------------------------------------------------------
+
+fastq_lookup = tibble(fastq_path = Sys.glob(file.path(LOCAL_FASTQ_PREFIX, "*fastq*")))
+
+# munge ------------------------------------------------------------------------
+
+demux_table_mutate = demux_table %>%
+  mutate(File.Basename = paste(Sample.Name, File.Basename, sep="."))
+
+fastq_lookup_mutate = fastq_lookup %>%
+  mutate(fastq_basename = basename(fastq_path)) %>%
+  mutate(read = str_extract(basename(fastq_path), "R\\d")) %>%
+  mutate(File.Basename = str_extract(basename(fastq_path),
+                                     ".+(?=_R\\d.fastq.gz)")) %>%
+  dplyr::select(File.Basename, fastq_basename, read)
+
+# create nf sample sheet -------------------------------------------------------
+
+nf_samplesheet = demux_table_mutate %>%
+  left_join(fastq_lookup_mutate) %>%
+  pivot_wider(names_from=read, values_from = fastq_basename) %>%
+  mutate(strandedness = "unstranded") %>%
+  mutate(batch = BATCH) %>%
+  dplyr::rename(sample = Sample.Name,
+                fastq_1 = R1,
+                fastq_2 = R2,
+                index_sequence = Index.Sequence,
+                flow_cell_id = Flow.Cell.ID,
+                lane = Lane.Number,
+                library_name = Library.Name,
+                estimated_total_bases_per_kb = Estimated.Total.Bases.per.KB,
+                estimated_total_reads = Estimated.Total.Read.Pairs,
+                average_q_score = Average.Q.Score,
+                percent_above_q30 = Percent.Above.Q30,
+                percent_phix_error = Percent.PhiX.Error) %>%
+  mutate(fastq_1 = file.path(OUT_FASTQ_PREFIX, fastq_1),
+         fastq_2 = file.path(OUT_FASTQ_PREFIX, fastq_2)) %>%
+  dplyr::select(sample,
+                fastq_1,
+                fastq_2,
+                strandedness,
+                batch,
+                index_sequence,
+                flow_cell_id,
+                lane,
+                library_name,
+                estimated_total_bases_per_kb,
+                estimated_total_reads,
+                average_q_score,
+                percent_above_q30,
+                percent_phix_error)
+
+# write out --------------------------------------------------------------------
+if(WRITE_OUT){
+  write_csv(nf_samplesheet,
+          file.path(
+            "/mnt/scratch/llfs_rnaseq_dataprocessing/llfs_rna_pipeline",
+            "sample_sheets",
+            paste0(BATCH, ".csv")))
+}
+
+
+```
+

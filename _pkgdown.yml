@@ -1,0 +1,81 @@
+url: https://cmatkhan.github.io/LLFS_RNAseq_dataprocessing
+
+template:
+  params:
+    bootswatch: cosmo
+
+navbar:
+  structure:
+    left:  [intro, articles, reference, news, Citations, rnaseq_pipeline, rnavar_pipeline, llfs]
+    right: [search, github]
+  components:
+    articles:
+      text: Vignettes
+      menu:
+      - text: The RNAseq Database
+      - text: Overview
+        href: articles/database-overview.html
+      - text: -------------------------------
+      - text: Processing Raw Data
+      - text: Creating A Samplesheet
+        href: articles/create-samplesheet.html
+      - text: --------------------------------
+      - text: Initial QC
+      - text: Sex Label Check
+        href: articles/sex-label-check.html
+      - text: Expression QC
+        href: articles/expression-qc.html
+      - text: Batch Effects
+        href: articles/batch-effects.html
+      - text: --------------------------------
+      - text: Creating a release
+      - text: Setting filters and Exporting the Data
+        href: articles/creating-a-release.html
+      - text: Shared Data Overview
+        href: articles/shared-data-overview.html
+    reference:
+      text: API
+      href: reference/index.html
+    rnaseq_pipeline:
+      text: nf-core/rnaseq pipeline
+      href: https://nf-co.re/rnaseq/3.3/
+    rnavar_pipeline:
+      text: modified nf-core/rnavar
+      href: https://github.com/cmatKhan/rnavar
+    llfs:
+      test: LLFS
+      href: https://longlifefamilystudy.wustl.edu
+
+reference:
+- title: Handling Raw Data
+  desc: These functions assist with running the nf-core/rnaseq pipeline
+    and handling the output
+  contents:
+  - combine_txi_objects
+- title: Sex Mislabe QC Functions
+  desc: These functions are used in the Sex Mislabelling QC Vignette
+  contents:
+  - sex_mislabel_setup
+  - top_500_pca_for_sex_mislabels
+- title: Batch Effect QC Functions
+  desc: These functions are used in in the Batch Effects QC Vignette
+  contents:
+  - batch_effect_qc_setup
+  - before_after_pca_and_plate_regression_plots
+  - direction_change_in_percent_intergenic
+  - filter_dds_restimate_sizeFactors
+  - project_counts_onto_orig_pcs
+  - remove_parameter_effects
+- title: Package Data
+  desc: This section describes data objects which are installed along with
+    `llfsRnaseq`
+  contents:
+  - pca_sex_qc
+
+home:
+  links:
+  - text: Ask a question
+    href: https://github.com/cmatKhan/llfsRnaseq/discussions
+  - text: Request a feature
+    href: https://github.com/cmatKhan/llfsRnaseq/issues
+

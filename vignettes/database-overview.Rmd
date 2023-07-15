@@ -1,0 +1,699 @@
+---
+title: "The LLFS RNAseq Database"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{database-overview}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval=FALSE
+)
+```
+
+# tl;dr
+
+This database will make re-labelling samples less error prone, and will make 
+it much easier to submit to NCBI when the time comes. For each **table** 
+(not view) below, there is a brief description of the table, and the primary 
+and foreign key(s) are shown. A full table description with all of the fields 
+are available if you click the details for each table and view.
+
+# Introduction
+
+This is a database whose purpose is to assign a unique ID to both "samples", 
+which can be thought of as a specific tube of blood donated by a given 
+LLFS participant during a given visit, and to individual fastq files themselves. 
+Note that one "sample" might have up to six or more (should be even, of course) 
+fastq files -- the paired-end R1 and R2, and sometimes a single sample has 
+multiple R1 and R2 files over different lanes.  
+
+Prior to the July, 2023 release, this data was being tracked in a series of 
+excel files. It was challenging to keep track of what file was what as they 
+were amended and passed back and forth. 
+Since some of these files pertained to relabeling samples due 
+to typos, or the result of comparing the RNA variants to the WGS data, and there 
+did not exist a unique sample ID other than the combination of 
+(subject, visit, batch), which was of course mutable since `subject` would need 
+to be changed in the event of a mislabel, a database became a necessity.
+
+The result of using a database means that a sample is assigned an immutable 
+primary key, the [sample table](#sample) primary key, frequently referred to 
+in other tables as `sample_id`. 
+Changing any other labeling, for instance the `whatdatall` 
+`identifier` and/or `subject`, becomes a simple task. Moreover, this means that 
+by changing the `identifier`, you also change the `sex` -- no more having to 
+change two columns for every mislabel, a source of potential error that 
+is easily avoided in a database.
+
+# IMPORTANT
+
+Please note the following:
+
+All tables have an auto-incremented primary key called `pk`. This is because 
+any column called `id` is specifically referring to the LLFS whatdatall `id`. 
+However, when a field is a foreign key, I give it the suffix `_id`. So for 
+example, `sample_id` is a foreign key to the `sample` table.  
+
+This is not great -- any specific suggestions on how to improve this naming 
+would be appreciated.  
+
+To make this more complicated, `fastq_id` is always a foreign key to the 
+`fastq` table, but it has an additional meaning: the `fastq_id` is the `id` 
+which the actual fastq file possesses. This `fastq_id` may be wrong -- for 
+example, if there was a typo, or that particular ID is in the visit_1 transfer 
+set, or if it was determined to be mislabeled from the RNA variants vs WGS 
+data comparison. In this case, a sample should be thought of as having a 
+`fastq_id`, derived from the fastqfilename, but also a `whatdatall_id`, which 
+results from a correction ([see the corrected_samples table](#corrected_sample)). 
+a given sample's `subject` will always be assigned from the samples 
+`whatdatall_id`, which, if you are using one of my views, is assigned after 
+relabeling any known mislabels.  
+
+# Views
+
+A view is a saved SQL query. It provides a way to access joined and/or 
+otherwise manipulated data as if it were a table.
+
+## llfs_rnaseq_metadata
+
+This provides the metadata which I use when constructing the released data. 
+Note that not all of these columns are provided in the metadata of the 
+released data
+
+<details>
+<summary>LLFS RNAseq Metadata View</summary>
+
+| Field           | Purpose           | Datatype | Description                                               |
+|-----------------|-------------------|----------|-----------------------------------------------------------|
+| sample_id       |                   | INTEGER  | Primary key of the sample                                  |
+| batch_id        |                   | INTEGER  | Foreign key to the batch table                             |
+| batch_alias     |                   | TEXT     | Alias of the batch                                         |
+| fastq_id        |                   | TEXT     | Foreign key to the fastq table                             |
+| visit           |                   | TEXT     | Visit information for the sample                           |
+| relabel_reason  |                   | TEXT     | Reason for relabeling the sample (or "NA" if not applicable)|
+| mislabelled     |                   | INTEGER  | Indicator of whether the sample is mislabeled (0 or 1)      |
+| suspicious_sex  |                   | INTEGER  | Indicator of whether the sample has suspicious sex (0 or 1) |
+| legal           |                   | TEXT     | Reason for legal status ("yes" if not applicable)           |
+| whatdatall_id   |                   | INTEGER  | Foreign key to the whatdatall table                        |
+| subject         |                   | INTEGER  | Subject information for the sample                         |
+| sex             |                   | INTEGER  | Sex information for the sample                             |
+| chromosome_x    |                   | INTEGER  | Number of reads mapped to chromosome X                     |
+| chromosome_y    |                   | INTEGER  | Number of reads mapped to chromosome Y                     |
+| y_x_ratio       |                   | REAL     | Ratio of reads mapped to chromosome Y to chromosome X      |
+| exonic          |                   | INTEGER  | Number of reads in exonic regions                          |
+| intronic        |                   | INTEGER  | Number of reads in intronic regions                        |
+| intergenic      |                   | INTEGER  | Number of reads in intergenic regions                      |
+| percent_exonic  |                   | REAL     | Percentage of reads in exonic regions                      |
+| percent_intronic|                   | REAL     | Percentage of reads in intronic regions                    |
+| percent_intergenic|                  | REAL     | Percentage of reads in intergenic regions                  |
+
+</details>  
+
+## genomic_origin_view
+
+This view provides information about the genomic origin of reads based on the `qualimap_genomic_origin` table.
+
+<details>
+
+<summary>Qualimap Genomic Origin View</summary>
+
+| Field              | Purpose                  | Datatype | Description                                                          |
+|--------------------|--------------------------|----------|----------------------------------------------------------------------|                                           |
+| sample_id          |                          | TEXT     | Foreign key to the sample table                                       |
+| exonic             |                          | INTEGER  | Number of reads in exonic regions                                     |
+| intronic           |                          | INTEGER  | Number of reads in intronic regions                                   |
+| intergenic         |                          | INTEGER  | Number of reads in intergenic regions                                 |
+| percent_exonic     |                          | REAL     | Percentage of reads in exonic regions                                 |
+| percent_intronic   |                          | REAL     | Percentage of reads in intronic regions                               |
+| percent_intergenic |                          | REAL     | Percentage of reads in intergenic regions                             |
+</details>
+
+## xy_ratio
+
+This view provides information about the XY ratio based on 
+the `samtools_idxstats_xy_plot` table.
+
+<details>
+
+<summary>XY Ratio View</summary>
+
+| Field        | Purpose                  | Datatype | Description                             |
+|--------------|--------------------------|----------|-----------------------------------------|
+| sample_id    |                          | TEXT     | Foreign key to the sample table          |
+| chromosome_x |                          | INTEGER  | Number of reads mapped to chromosome X   |
+| chromosome_y |                          | INTEGER  | Number of reads mapped to chromosome Y   |
+| y_x_ratio    |                          | REAL     | Ratio of reads mapped to Y over reads mapped to X |
+
+</details> 
+
+## expression_qc_view
+
+This is a view of the expression_qc table with additional columns created from 
+the hemoglobin, rn7sl and protein_coding_total / library size
+
+<details>
+
+<summary>Full Table Details</summary>
+
+| Field                  | Purpose                   | Datatype | Description                                                  |
+|------------------------|---------------------------|----------|--------------------------------------------------------------|
+| pk                     | primary key autoincrement | INTEGER  | auto incremented primary key |
+| sample_id              | foreign key               | INTEGER  | References the "pk" field in the "sample" table              |
+| library_size           |                           | INTEGER  | Holds the library size data for each record                  |
+| protein_coding_total   |                           | INTEGER  | Represents the total count of protein coding for each record |
+| hemoglobin_counts      |                           | INTEGER  | Stores the count of hemoglobin for each record               |
+| rn7sl1_counts          |                           | INTEGER  | Stores the count of rn7sl1 for each record                   |
+| percent_hemoglobin          |                           | INTEGER  | hemoglobin_counts / library_size                   |
+| percent_rn7sl          |                           | INTEGER  | rn7sl_counts / library_size                   |
+| percent_protein_coding          |                           | INTEGER  | protein_coding_total / library_size            |
+
+
+</details>
+
+# Tables
+
+Each heading below is a physical table (not a view) in the database. A brief 
+description of each is provided, and the primary key and foreign key, if one 
+exists, is shown to give you an overview of how these tables are related.  
+
+To see the full description of any one of these tables, click 
+"Full Table Details".
+
+## batch 
+
+This table stores information about batches. 
+
+| Field | Purpose | Datatype | Description |
+|-------|---------|----------|-------------|
+| pk | primary key | INTEGER | autoincremented primary key |
+
+<details>
+<summary>Full Table Details</summary>
+
+| Field | Purpose | Datatype | Description |
+|-------|---------|----------|-------------|
+| pk | primary key | INTEGER | autoincremented primary key |
+| data_dir |  | TEXT | name of the directory which stores this data in the dsg cluster |
+| batch_alias |  | TEXT | I was unfortunately inconsistent in how I refered to these in processing the data. this column provides a map from what I named the batch when processing to the name of the dsg directory |
+| dsg_fastq_dirpath |  | TEXT | The subdirectory structure of each data_dir varies quite a bit. This column provides the absolute path to the actual directory which stores the fastq files |
+
+</details>
+
+## corrected_sample 
+
+This table stores information about corrected samples. Note that only 
+`legal == 'yes'` samples are present in this table
+
+| Field | Purpose | Datatype | Description |
+|-------|---------|----------|-------------|
+| pk | primary key | INTEGER | autoincremented primary key |
+| sample_id | foreign key to sample | TEXT | References the "pk" field in the "sample" table   |
+
+<details>
+<summary>Full Table Details</summary>
+
+| Field | Purpose | Datatype | Description |
+|-------|---------|----------|-------------|
+| pk | primary key | INTEGER | Add a brief explanation of the field here. |
+| sample_id | foreign key to sample | TEXT | Add a brief explanation of the field here. |
+| whatdatall_id | foreign key to whatdatall | TEXT | Add a brief explanation of the field here. |
+| reason |  | TEXT | Add a brief explanation of the field here. |
+
+</details>
+
+## expression_qc
+
+This table stores count data which is extracted in the expression_qc step 
+(see the articles in the served documentation, or the vignette in the 
+code repo).
+
+| Field                  | Purpose                   | Datatype | Description                                                  |
+|------------------------|---------------------------|----------|--------------------------------------------------------------|
+| pk                     | primary key autoincrement | INTEGER  | auto incremented primary key |
+| sample_id              | foreign key               | INTEGER  | References the "pk" field in the "sample" table  
+
+<details>
+
+<summary>Full Table Details</summary>
+
+| Field                  | Purpose                   | Datatype | Description                                                  |
+|------------------------|---------------------------|----------|--------------------------------------------------------------|
+| pk                     | primary key autoincrement | INTEGER  | auto incremented primary key |
+| sample_id              | foreign key               | INTEGER  | References the "pk" field in the "sample" table              |
+| library_size           |                           | INTEGER  | Holds the library size data for each record                  |
+| protein_coding_total   |                           | INTEGER  | Represents the total count of protein coding for each record |
+| hemoglobin_counts      |                           | INTEGER  | Stores the count of hemoglobin for each record               |
+| rn7sl1_counts          |                           | INTEGER  | Stores the count of rn7sl1 for each record                   |
+
+
+</details>
+
+
+## fastq 
+
+This table stores information about FASTQ files. Note that there may be 
+more than 1 fastq record for each sample_id since there are some (quite a few) 
+samples which have multiple lanes worth of paired-end libraries (so if 1 
+sample is split across two lanes, there would be 2 R1 and 2 R2)
+
+| Field | Purpose | Datatype | Description |
+|-------|---------|----------|-------------|
+| pk | primary key | INTEGER | auto incremented primary key |
+| sample_id | foreign key to sample | TEXT | References the "pk" field in the "sample" table   |
+
+<details>
+<summary>Full Table Details</summary>
+
+| Field | Purpose | Datatype | Description |
+|-------|---------|----------|-------------|
+| pk | primary key | INTEGER | autoincremented primary key |
+| sample_id | foreign key to sample | INTEGER | foreign key to the sample table |
+| fastq_1 |  | TEXT | name of the R1 fastq file |
+| fastq_2 |  | TEXT | name of the R2 fastq file |
+| strandedness |  | TEXT | the strandedness of the library protocol |
+| index_sequence |  | TEXT | index sequence extracted from the fastq filename |
+| flow_cell_id | foreign key to flow_cell | TEXT | flow cell identifier |
+| lane |  | TEXT | lane in the flowcell |
+| notes |  | TEXT | any notes on the fastq. Defaults to 'none' |
+
+</details>
+
+
+## id_correction 
+
+This table stores a list of the possible reasons why a sample's whatdatall ID 
+might be corrected. It is used as a foreign key in `corrected_samples` to 
+ensure that the `"corrected_samples"."reason"` field is consistent.
+
+| Field | Purpose | Datatype | Description |
+|-------|---------|----------|-------------|
+| reason |  | TEXT | reason that the sample is being mislabelled |
+| source |  | TEXT | the file or way in which the mislabel was originally communicated |
+
+
+
+
+## multiqc_general 
+
+**Note**: parsing this data out of multiQC is a work in progress.
+
+This is the 'general' table stats from MultiQC and includes both alignment 
+and read level QC. As a result, there are at least 3 records for each sample. 
+This is not in its final form yet -- I am still working on the parsing. However, 
+you can extract the data, and the data is accurate. It is here if you are 
+interested, and the parsing will imrpove over time.
+
+| Field | Purpose | Datatype | Description |
+|-------|---------|----------|-------------|
+| pk | primary key | INTEGER | autoincremented primary key |
+| sample_id | foreign key to sample | INTEGER | References the "pk" field in the "sample" table |
+
+<details>
+<summary>Full Table Details</summary>
+
+| Field | Purpose | Datatype | Description |
+|-------|---------|----------|-------------|
+| pk | primary key | INTEGER | autoincremented primary key |
+| sample_id | foreign key to sample | INTEGER | References the "pk" field in the "sample" table |
+| general.dupradar_intercept |  | REAL | Add a brief explanation of the field here. |
+| general.percent_rrna |  | REAL | Add a brief explanation of the field here. |
+| general.library |  | TEXT | Add a brief explanation of the field here. |
+| general.unpaired_reads_examined |  | INTEGER | Add a brief explanation of the field here. |
+| general.read_pairs_examined |  | INTEGER | Add a brief explanation of the field here. |
+| general.secondary_or_supplementary_rds |  | INTEGER | Add a brief explanation of the field here. |
+| general.unmapped_reads |  | INTEGER | Add a brief explanation of the field here. |
+| general.unpaired_read_duplicates |  | INTEGER | Add a brief explanation of the field here. |
+| general.read_pair_duplicates |  | INTEGER | Add a brief explanation of the field here. |
+| general.read_pair_optical_duplicates |  | INTEGER | Add a brief explanation of the field here. |
+| general.percent_duplication |  | INTEGER | Add a brief explanation of the field here. |
+| general.estimated_library_size |  | INTEGER | Add a brief explanation of the field here. |
+| general.5_3_bias |  | REAL | Add a brief explanation of the field here. |
+| general.reads_aligned |  | INTEGER | Add a brief explanation of the field here. |
+| general.unalignable |  | INTEGER | Add a brief explanation of the field here. |
+| general.alignable |  | INTEGER | Add a brief explanation of the field here. |
+| general.filtered |  | INTEGER | Add a brief explanation of the field here. |
+| general.total |  | INTEGER | Add a brief explanation of the field here. |
+| general.alignable_percent |  | REAL | Add a brief explanation of the field here. |
+| general.unique |  | INTEGER | Add a brief explanation of the field here. |
+| general.multi |  | INTEGER | Add a brief explanation of the field here. |
+| general.uncertain |  | INTEGER | Add a brief explanation of the field here. |
+| general.total_records |  | INTEGER | Add a brief explanation of the field here. |
+| general.qc_failed |  | INTEGER | Add a brief explanation of the field here. |
+| general.optical_pcr_duplicate |  | INTEGER | Add a brief explanation of the field here. |
+| general.non_primary_hits |  | INTEGER | Add a brief explanation of the field here. |
+| general.mapq_lt_mapq_cut_non_unique |  | INTEGER | Add a brief explanation of the field here. |
+| general.mapq_gte_mapq_cut_unique |  | INTEGER | Add a brief explanation of the field here. |
+| general.read_1 |  | INTEGER | Add a brief explanation of the field here. |
+| general.read_2 |  | INTEGER | Add a brief explanation of the field here. |
+| general.reads_map_to_sense |  | INTEGER | Add a brief explanation of the field here. |
+| general.reads_map_to_antisense |  | INTEGER | Add a brief explanation of the field here. |
+| general.non_splice_reads |  | INTEGER | Add a brief explanation of the field here. |
+| general.splice_reads |  | INTEGER | Add a brief explanation of the field here. |
+| general.reads_mapped_in_proper_pairs |  | INTEGER | Add a brief explanation of the field here. |
+| general.proper_paired_reads_map_to_different_chrom |  | INTEGER | Add a brief explanation of the field here. |
+| general.unique_percent |  | REAL | Add a brief explanation of the field here. |
+| general.proper_pairs_percent |  | REAL | Add a brief explanation of the field here. |
+| general.raw_total_sequences |  | INTEGER | Add a brief explanation of the field here. |
+| general.filtered_sequences |  | INTEGER | Add a brief explanation of the field here. |
+| general.sequences |  | INTEGER | Add a brief explanation of the field here. |
+| general.is_sorted |  | INTEGER | Add a brief explanation of the field here. |
+| general.1st_fragments |  | INTEGER | Add a brief explanation of the field here. |
+| general.last_fragments |  | INTEGER | Add a brief explanation of the field here. |
+| general.reads_mapped |  | INTEGER | Add a brief explanation of the field here. |
+| general.reads_mapped_and_paired |  | INTEGER | Add a brief explanation of the field here. |
+| general.reads_unmapped |  | INTEGER | Add a brief explanation of the field here. |
+| general.reads_properly_paired |  | INTEGER | Add a brief explanation of the field here. |
+| general.reads_paired |  | INTEGER | Add a brief explanation of the field here. |
+| general.reads_duplicated |  | INTEGER | Add a brief explanation of the field here. |
+| general.reads_mq0 |  | INTEGER | Add a brief explanation of the field here. |
+| general.reads_qc_failed |  | INTEGER | Add a brief explanation of the field here. |
+| general.non_primary_alignments |  | INTEGER | Add a brief explanation of the field here. |
+| general.supplementary_alignments |  | INTEGER | Add a brief explanation of the field here. |
+| general.total_length |  | INTEGER | Add a brief explanation of the field here. |
+| general.total_first_fragment_length |  | INTEGER | Add a brief explanation of the field here. |
+| general.total_last_fragment_length |  | INTEGER | Add a brief explanation of the field here. |
+| general.bases_mapped |  | INTEGER | Add a brief explanation of the field here. |
+| general.bases_mapped_cigar |  | INTEGER | Add a brief explanation of the field here. |
+| general.bases_trimmed |  | INTEGER | Add a brief explanation of the field here. |
+| general.bases_duplicated |  | INTEGER | Add a brief explanation of the field here. |
+| general.mismatches |  | INTEGER | Add a brief explanation of the field here. |
+| general.error_rate |  | REAL | Add a brief explanation of the field here. |
+| general.average_length |  | INTEGER | Add a brief explanation of the field here. |
+| general.average_first_fragment_length |  | INTEGER | Add a brief explanation of the field here. |
+| general.average_last_fragment_length |  | INTEGER | Add a brief explanation of the field here. |
+| general.maximum_length |  | INTEGER | Add a brief explanation of the field here. |
+| general.maximum_first_fragment_length |  | INTEGER | Add a brief explanation of the field here. |
+| general.maximum_last_fragment_length |  | INTEGER | Add a brief explanation of the field here. |
+| general.average_quality |  | REAL | Add a brief explanation of the field here. |
+| general.insert_size_average |  | REAL | Add a brief explanation of the field here. |
+| general.insert_size_standard_deviation |  | REAL | Add a brief explanation of the field here. |
+| general.inward_oriented_pairs |  | INTEGER | Add a brief explanation of the field here. |
+| general.outward_oriented_pairs |  | INTEGER | Add a brief explanation of the field here. |
+| general.pairs_with_other_orientation |  | INTEGER | Add a brief explanation of the field here. |
+| general.pairs_on_different_chromosomes |  | INTEGER | Add a brief explanation of the field here. |
+| general.percentage_of_properly_paired_reads_% |  | REAL | Add a brief explanation of the field here. |
+| general.reads_mapped_percent |  | REAL | Add a brief explanation of the field here. |
+| general.reads_mapped_and_paired_percent |  | REAL | Add a brief explanation of the field here. |
+| general.reads_unmapped_percent |  | REAL | Add a brief explanation of the field here. |
+| general.reads_properly_paired_percent |  | REAL | Add a brief explanation of the field here. |
+| general.reads_paired_percent |  | REAL | Add a brief explanation of the field here. |
+| general.reads_duplicated_percent |  | REAL | Add a brief explanation of the field here. |
+| general.reads_mq0_percent |  | REAL | Add a brief explanation of the field here. |
+| general.reads_qc_failed_percent |  | REAL | Add a brief explanation of the field here. |
+| general.total_passed |  | INTEGER | Add a brief explanation of the field here. |
+| general.total_failed |  | INTEGER | Add a brief explanation of the field here. |
+| general.secondary_passed |  | INTEGER | Add a brief explanation of the field here. |
+| general.secondary_failed |  | INTEGER | Add a brief explanation of the field here. |
+| general.supplementary_passed |  | INTEGER | Add a brief explanation of the field here. |
+| general.supplementary_failed |  | INTEGER | Add a brief explanation of the field here. |
+| general.duplicates_passed |  | INTEGER | Add a brief explanation of the field here. |
+| general.duplicates_failed |  | INTEGER | Add a brief explanation of the field here. |
+| general.mapped_passed |  | INTEGER | Add a brief explanation of the field here. |
+| general.mapped_failed |  | INTEGER | Add a brief explanation of the field here. |
+| general.mapped_passed_pct |  | REAL | Add a brief explanation of the field here. |
+| general.mapped_failed_pct |  | REAL | Add a brief explanation of the field here. |
+| general.paired_in_sequencing_passed |  | INTEGER | Add a brief explanation of the field here. |
+| general.paired_in_sequencing_failed |  | INTEGER | Add a brief explanation of the field here. |
+| general.read1_passed |  | INTEGER | Add a brief explanation of the field here. |
+| general.read1_failed |  | INTEGER | Add a brief explanation of the field here. |
+| general.read2_passed |  | INTEGER | Add a brief explanation of the field here. |
+| general.read2_failed |  | INTEGER | Add a brief explanation of the field here. |
+| general.properly_paired_passed |  | INTEGER | Add a brief explanation of the field here. |
+| general.properly_paired_failed |  | INTEGER | Add a brief explanation of the field here. |
+| general.properly_paired_passed_pct |  | REAL | Add a brief explanation of the field here. |
+| general.properly_paired_failed_pct |  | REAL | Add a brief explanation of the field here. |
+| general.with_itself_and_mate_mapped_passed |  | INTEGER | Add a brief explanation of the field here. |
+| general.with_itself_and_mate_mapped_failed |  | INTEGER | Add a brief explanation of the field here. |
+| general.singletons_passed |  | INTEGER | Add a brief explanation of the field here. |
+| general.singletons_failed |  | INTEGER | Add a brief explanation of the field here. |
+| general.singletons_passed_pct |  | REAL | Add a brief explanation of the field here. |
+| general.singletons_failed_pct |  | REAL | Add a brief explanation of the field here. |
+| general.with_mate_mapped_to_a_different_chr_passed |  | INTEGER | Add a brief explanation of the field here. |
+| general.with_mate_mapped_to_a_different_chr_failed |  | INTEGER | Add a brief explanation of the field here. |
+| general.with_mate_mapped_to_a_different_chr_mapq__5_passed |  | INTEGER | Add a brief explanation of the field here. |
+| general.with_mate_mapped_to_a_different_chr_mapq__5_failed |  | INTEGER | Add a brief explanation of the field here. |
+| general.flagstat_total |  | INTEGER | Add a brief explanation of the field here. |
+| general.percent_gc |  | REAL | Add a brief explanation of the field here. |
+| general.avg_sequence_length |  | REAL | Add a brief explanation of the field here. |
+| general.total_sequences |  | REAL | Add a brief explanation of the field here. |
+| general.percent_duplicates |  | REAL | Add a brief explanation of the field here. |
+| general.percent_fails |  | REAL | Add a brief explanation of the field here. |
+| general.r_processed |  | INTEGER | Add a brief explanation of the field here. |
+| general.r_with_adapters |  | INTEGER | Add a brief explanation of the field here. |
+| general.r_written |  | INTEGER | Add a brief explanation of the field here. |
+| general.bp_processed |  | REAL | Add a brief explanation of the field here. |
+| general.quality_trimmed |  | INTEGER | Add a brief explanation of the field here. |
+| general.bp_written |  | REAL | Add a brief explanation of the field here. |
+| general.percent_trimmed |  | REAL | Add a brief explanation of the field here. |
+
+
+</details>
+
+
+## qualimap_genomic_origin 
+
+This table stores genomic origin information from QualiMap. See the 
+QualiMap documentation for more details on how a read is assigned to each 
+category.
+
+| Field | Purpose | Datatype | Description |
+|-------|---------|----------|-------------|
+| pk | primary key | INTEGER | autoincremented primary key |
+| sample_id | foreign key to sample | TEXT | References the "pk" field in the "sample" table |
+
+<details>
+<summary>Full Table Details</summary>
+
+| Field | Purpose | Datatype | Description |
+|-------|---------|----------|-------------|
+| pk | primary key | INTEGER | autoincremented primary key |
+| sample_id | foreign key to sample | TEXT | References the "pk" field in the "sample" table |
+| exonic |  | INTEGER | raw counts of reads over exonic regions |
+| intronic |  | INTEGER | raw counts of reads over intronic regions |
+| intergenic |  | INTEGER | raw counts of reads over intergenic regions|
+
+</details>
+
+
+## remove_ids 
+
+This table stores information about removed IDs. Note that if there is ever 
+more than 1 reason (currently the only reason is `legal_removal`), then 
+the reasons/sources should be extracted to a separate table like 
+`id_correction`
+
+| Field | Purpose | Datatype | Description |
+|-------|---------|----------|-------------|
+| pk | primary key | INTEGER | autoincremented primary key |
+| id |  | INTEGER | References the "id" field in the "whatdatall" table |
+
+<details>
+<summary>Full Table Details</summary>
+
+| Field | Purpose | Datatype | Description |
+|-------|---------|----------|-------------|
+| pk | primary key | INTEGER | autoincremented primary key |
+| id |  | INTEGER | References the "id" field in the "whatdatall" table |
+| source |  | TEXT | What document, or what email, etc was used to communicate that this sample should be removed |
+| reason |  | TEXT | Reason that the sample is being removed |
+
+</details>
+
+
+## rsem_assignment_plot 
+
+This table stores RSEM quantification QC information.
+
+| Field | Purpose | Datatype | Description |
+|-------|---------|----------|-------------|
+| pk | primary key | INTEGER | autoincremented primary key |
+| sample_id | foreign key to sample | TEXT | References the "pk" field in the "sample" table |
+
+<details>
+<summary>Full Table Details</summary>
+
+| Field | Purpose | Datatype | Description |
+|-------|---------|----------|-------------|
+| pk | primary key | INTEGER | autoincremented primary key |
+| sample_id | foreign key to sample | TEXT | References the "pk" field in the "sample" table |
+| aligned_uniquely_to_a_gene |  | INTEGER | RSEM determined unique alignment raw counts |
+| aligned_to_multiple_genes |  | INTEGER | RSEM determined multimap raw counts |
+| filtered_due_to_too_many_alignments |  | INTEGER | Reads not considered for the EM quantification due to 'too many' multimaps |
+| unalignable_reads |  | INTEGER | raw count of reads which count not be aligned in the genome |
+
+</details>
+
+
+## rsem_quant 
+
+This table is a counterpart to the `fastq` table, but instead stores the 
+`dsg` path to the RSEM quantification files
+
+| Field | Purpose | Datatype | Description |
+|-------|---------|----------|-------------|
+| pk | primary key | INTEGER | autoincremented primary key |
+| sample_id | foreign key to sample | TEXT | References the "pk" field in the "sample" table |
+
+
+<details>
+<summary>Full Table Details</summary>
+
+| Field | Purpose | Datatype | Description |
+|-------|---------|----------|-------------|
+| pk | primary key | INTEGER | Add a brief explanation of the field here. |
+| sample_id | foreign key to sample | INTEGER | Add a brief explanation of the field here. |
+| rsem_isoform_quant |  | TEXT | Add a brief explanation of the field here. |
+
+</details>
+
+
+## sample 
+
+This is a very important table. It essentially functions to assign a unique ID 
+to each actual *sample* (remember a sample might have as many as 6 fastq 
+files assigned to it because of the paired-end nature, and the fact that a 
+single sample can be split over mulitple lanes). The utility of having a 
+unique primary key for every sample is that it gives us a way to refer to an 
+actual biological entity independent of the (subject,visit) indentifiers, which 
+may be wrong. This primary key will never change, even if the sample is 
+re-labelled with a different subject later on.
+
+| Field | Purpose | Datatype | Description |
+|-------|---------|----------|-------------|
+| pk | primary key | INTEGER | autoincremented primary key |
+| batch_id | foreign key to batch | INTEGER | References "pk" of the batch table |
+
+<details>
+<summary>Full Table Details</summary>
+
+| Field | Purpose | Datatype | Description |
+|-------|---------|----------|-------------|
+| pk | primary key | INTEGER | autoincremented primary key |
+| fastq_id | foreign key to fastq | TEXT | the ORIGINAL LLFS ID which is extracted from the fastq filename |
+| visit |  | TEXT | The visit, extracted from the fastqfilename |
+| batch_id | foreign key to batch | INTEGER | References "pk" of the batch table |
+| mislabelled |  | BOOLEAN | TRUE (1) if upon comparing the RNA variants to the corresponding subject's WGS data, the RNA sampl was obviously mislabelled. BUT, the actual match could not be found (not all RNA samples have WGS data). Else FALSE (0) |
+| suspicious_sex |  | BOOLEAN | TRUE (1) if the sex expression is obviously opposite of what is labelled. A sample will 
+be TRUE if it a) showed suspicious sex characteristics given its label and b) did not have data in the WGS data to do a comparison|
+
+</details>
+
+## samtools_idxstats_xy_plot 
+
+This table stores the X and Y chromosome expression information as extracted 
+by samtools. Note that I have found that looking at the top 500 most variable 
+gene's PCs is an easier method of determining sex (and mislabels determined 
+by sex) than these counts are. However, I use the counts to confirm the 
+PCA results.
+
+| Field | Purpose | Datatype | Description |
+|-------|---------|----------|-------------|
+| pk | primary key | INTEGER | autoincremented primary key |
+| sample_id | foreign key to sample | TEXT | References the "pk" field in the "sample" table |
+
+<details>
+<summary>Full Table Details</summary>
+
+| Field | Purpose | Datatype | Description |
+|-------|---------|----------|-------------|
+| pk | primary key | INTEGER | autoincremented primary key |
+| sample_id | foreign key to sample | TEXT | References the "pk" field in the "sample" table |
+| chromosome_x |  | INTEGER | raw counts of reads over the X chromosome |
+| chromosome_y |  | INTEGER | raw counts of reads over the Y chromosome |
+
+</details>
+
+
+## visitcode_map
+
+This is a mapping from `visit`, which is used in the `fastq filename` to 
+`visitcode`. (`id/subject`, `visitcode`) form the primary key of the LLFS 
+phenotype data, while `visit`, though used in the fastq filename, is 
+not defined. This is the mapping that is used to get the `visitcode` from 
+the `visit`:
+
+- if visit == 1, then visitcode = 1
+- if visit == 2, then visitcode is either 3 or 4
+- if visit == 3, then visitcode is either 6 or 7
+
+No subject can have visitcode 3 and 4, or visitcode 6 and 7, so this mapping 
+is actually one-to-one.
+
+| Field          | Purpose                   | Datatype | Description                                                  |
+|----------------|---------------------------|----------|--------------------------------------------------------------|
+| pk             | primary key autoincrement | INTEGER  | Unique identifier for each record in the visitcode_map table |
+| whatdatall_id  | foreign key               | TEXT     | References the "id" field in the "whatdatall" table          |
+
+<detail>
+
+<summary>Full Table Details</summary>
+
+| Field          | Purpose                   | Datatype | Description                                                  |
+|----------------|---------------------------|----------|--------------------------------------------------------------|
+| pk             | primary key autoincrement | INTEGER  | Unique identifier for each record in the visitcode_map table |
+| whatdatall_id  | foreign key               | TEXT     | References the "id" field in the "whatdatall" table          |
+| visit          |                           | TEXT     | Represents a visit, only allows values '1', '2', '3'         |
+| visitcode      |                           | TEXT     | Represents a visit code, only allows values from '1' to '7'  |
+
+
+</detail>
+
+## wgs_compare 
+
+This table stores the results of comparing the RNA sample variants to WGS 
+sample variants
+
+| Field | Purpose | Datatype | Description |
+|-------|---------|----------|-------------|
+| pk | primary key | INTEGER | autoincremented primary key |
+| sample_id | foreign key to sample | INTEGER | References "pk" of sample table |
+| dna_subject |  | INTEGER | References "subject" of whatdatall table |
+
+<details>
+<summary>Full Table Details</summary>
+
+| Field | Purpose | Datatype | Description |
+|-------|---------|----------|-------------|
+| pk | primary key | INTEGER | autoincremented primary key |
+| sample_id | foreign key to sample | INTEGER | References "pk" of sample table |
+| dna_subject |  | INTEGER | References "subject" of whatdatall table |
+| chr |  | TEXT | chromosome over which the comparison was conducted. Note that I frequently use chr21 b/c it is shorter. I have done comparisons and found that there is no loss of specificity by using a smaller chromosome |
+| total_variants |  | INTEGER | Total number of overlapping variants between the RNA and DNA |
+| matching_variants |  | INTEGER | Total number of overlapping variants which matched  |
+| homo_expr_cand |  | INTEGER | the total number of cases where the WGS is heterozygous but expression homozygous |
+| match_ratio |  | REAL | matching_variants/total_variants |
+
+</details>
+
+
+## whatdatall 
+
+This table stores the `ID`, `subject`, and `sex` as extracted from the 
+LLFS phenotype data. Note that this had to be augmented to include visit 3 
+samples, which are not yet included in the publically shared LLFS `whatdatall`.
+
+| Field | Purpose | Datatype | Description |
+|-------|---------|----------|-------------|
+| pk | primary key | INTEGER | autoincremented primary key |
+
+<details>
+<summary>Full Table Details</summary>
+
+| Field | Purpose | Datatype | Description |
+|-------|---------|----------|-------------|
+| pk | primary key | INTEGER | autoincremented primary key |
+| id |  | INTEGER | the LLFS ID. Note that this is what is used in the fastq filenames |
+| subject |  | INTEGER | The LLFS subject identifier |
+| sex |  | INTEGER | labelled sex of the subject with this identifier |
+| source |  | TEXT | where this record comes from |
+| notes |  | TEXT | any notes on this particular record |
+
+</details>
+
+
+

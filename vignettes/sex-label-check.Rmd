@@ -1,0 +1,194 @@
+---
+title: "sex-label-check"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{sex-label-check}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval=FALSE,
+  dpi=200,
+  fig.width = 14,
+  fig.height = 8
+)
+
+```
+
+# Check for sex mislabels
+
+Sex mislabeling implies sample mislabels, so here we're looking for 
+samples which group with the opposite of their sex label. Sorry libs, this is 
+quite binary.
+
+It happens to be the case that using the top two PCs calculated on the top 
+500 most variable genes very cleanly separates the samples by sex. We use this 
+to do this analysis below:
+
+```{r, echo=FALSE}
+library(tidyverse)
+library(ggrepel)
+library(DESeq2)
+library(edgeR)
+library(caret)
+library(ggsci)
+library(RSQLite)
+library(here)
+library(llfsRnaseq)
+
+# set ggplot global options
+theme_set(theme_minimal())
+theme_update(text = element_text(size=20),
+             panel.border = element_rect(colour = "black", fill=NA, size=1))
+
+
+DDS_RDS_PATH = here("llfs_rnaseq_data/dds_20220713_gene.rds")
+
+# remove data objects which are not used after a given chunk
+CLEAN_UP = TRUE
+
+OVERWRITE_FLAG = FALSE
+
+WRITE_OUT = FALSE
+
+
+qc_datasets = sex_mislabel_setup(DDS_RDS_PATH, .015, 3)
+
+
+slope=3
+intercept=0
+
+suspicious_samples_data =
+  top_500_pca_for_sex_mislabels(qc_datasets$raw,
+                                slope,
+                                intercept,
+                                inferred_sex_direction = 'down')
+```
+
+```{r}
+pca_sex_full = suspicious_samples_data %>%
+  filter(relabel_reason != 'phantom' | is.na(relabel_reason), sex !='control') %>%
+    ggplot(aes(PC1, PC2, 
+               color = sex,
+               key = subject,
+               size = inferred_sex_mislabel,
+               alpha = inferred_sex_mislabel)) +
+      geom_point() +
+      geom_abline(slope=slope,
+                  intercept = intercept) +
+      scale_alpha_manual(values = c('TRUE' = 1, 'FALSE' = 0.1)) +
+      scale_size_manual(values = c('TRUE' = 5, 'FALSE' = 1)) +
+      scale_color_manual(values = c("1" = "#B3589A",
+                                    "2"="#9BBF85",
+                                    "control" = "#F4A000"))
+
+pca_sex_full
+
+```
+
+```{r example_pca_plot_full, include=FALSE, eval=TRUE}
+#llfsRnaseq::pca_sex_qc$pca_sex_full
+```
+
+
+```{r pcaplot_detail}
+
+pca_sex_suspicious_labelled = suspicious_samples_data %>%
+  filter(inferred_sex_mislabel, sex != 'control') %>%
+  ggplot(aes(PC1, PC2,
+             color = sex,
+             label = ifelse(inferred_sex_mislabel & sex !='control', 
+                            paste(as.character(subject), 
+                                  as.character(visit), 
+                                  sep="_"), NA))) +
+  geom_point(aes(size = inferred_sex_mislabel, alpha = inferred_sex_mislabel)) +
+  geom_text_repel(color='black') +
+  geom_abline(slope=slope,
+              intercept = intercept) +
+  scale_alpha_manual(values = c('TRUE' = 1, 'FALSE' = 0.1)) +
+  scale_size_manual(values = c('TRUE' = 5, 'FALSE' = 1)) +
+  scale_color_manual(values = c("1" = "#B3589A",
+                                "2"="#9BBF85",
+                                "control" = "#F4A000"))
+
+pca_sex_suspicious_labelled
+
+```
+
+```{r example_pca_plot_labelled, include=FALSE, eval=TRUE}
+#llfsRnaseq::pca_sex_qc$pca_sex_suspicious_labelled
+```
+
+# Update the Database
+
+**tl;dr**: review the results, update the database, and update the `dds` 
+object QC as appropriate.
+
+Ideally, these sex mislabels are already captured in the database. Here, 
+we check that these samples are all labelled "suspicious_sex", that there are 
+no "suspicious_sex" samples that aren't here (eg, maybe we were able to 
+positively identify a sample and forgot to remove the suspicious_sex label), 
+and update the database if necessary.  
+
+Editing the database with this information can be a challenge, and requires 
+that you understand the table structure. Please read the documentation 
+on the database, and get comfortable with the key relationships between 
+tables, and the llfs_rnaseq_metadata view.  
+
+Except for new samples which have not been reviewed, all old samples which 
+display unusual grouping should be accounted for in the `suspicious_sex` 
+column of `sample` (this is `TRUE` when WGS data is unavailable), in `mislabel` 
+(this is `TRUE` when the wgs data says the sample isn't what it says it is, 
+but there is no positive match), or in a `sample` table `notes`, which might 
+state that the sample was deemed to likely be correctly labelled for some 
+other reason.  
+
+If you notice something wonky here, it takes a good deal of investigation -- 
+possibly you just need to update new sample info, most likely the 
+`suspicious_sex` boolean value -- but you might also need to do some 
+investigating to make sure you agree with how samples are being labelled and 
+re-labelled.
+
+## sex 1 suspicious samples
+```{r}
+sex_1_suspicious_samples = suspicious_samples_data %>%
+  filter(inferred_sex_mislabel | suspicious_sex, sex != 'control', inferred_sex == 1) %>%
+  select(sample_id, fastq_id, subject,visit,batch_alias,sex,
+         inferred_sex,suspicious_sex,mislabelled,
+         relabel_reason, sample_notes)
+```
+
+```{r example_sex1_mislabels, include=FALSE, eval=TRUE}
+llfsRnaseq::pca_sex_qc$sex_1_suspicious_samples
+```
+
+
+## sex 2 suspicious samples
+```{r}
+sex_2_suspicious_samples = suspicious_samples_data %>%
+  filter(inferred_sex_mislabel | suspicious_sex, sex != 'control', inferred_sex == 2) %>%
+  select(sample_id, fastq_id, subject,visit,batch_alias,
+         sex,inferred_sex,suspicious_sex,mislabelled,
+         relabel_reason, sample_notes)
+```
+
+```{r example_sex2_mislabels, include=FALSE, eval=TRUE}
+llfsRnaseq::pca_sex_qc$sex_2_suspicious_samples
+```
+
+
+```{r, include=FALSE, echo=FALSE}
+# update the package data
+# pca_sex_qc = list(
+#   pca_sex_full = pca_sex_full,
+#   pca_sex_suspicious_labelled = pca_sex_suspicious_labelled,
+#   sex_1_suspicious_samples = sex_1_suspicious_samples,
+#   sex_2_suspicious_samples = sex_2_suspicious_samples)
+# usethis::use_data(pca_sex_qc,overwrite = TRUE)
+```
+
+

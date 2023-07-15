@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Mateusiak"
+  given-names: "Chase"
+  orcid: "https://orcid.org/0000-0002-2890-4242"
+title: "llfsRnaseq: Long Life Family Study RNAseq Data Processing"
+version: 1.0.0
+doi: 10.5281/zenodo.8137302
+date-released: 2023-07-11
+url: "https://github.com/cmatKhan/llfsRnaseq"

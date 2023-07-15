@@ -1,0 +1,13 @@
+Ensemble ID,Gene name,Gene type,Gene description
+ENSG00000206172,HBA1,protein_coding,hemoglobin subunit alpha 1 [Source:HGNC Symbol;Acc:HGNC:4823]
+ENSG00000188536,HBA2,protein_coding,hemoglobin subunit alpha 2 [Source:HGNC Symbol;Acc:HGNC:4824]
+ENSG00000244734,HBB,protein_coding,hemoglobin subunit beta [Source:HGNC Symbol;Acc:HGNC:4827]
+ENSG00000229988,HBBP1,transcribed_unprocessed_pseudogene,hemoglobin subunit beta pseudogene 1 [Source:HGNC Symbol;Acc:HGNC:4828]
+ENSG00000223609,HBD,protein_coding,hemoglobin subunit delta [Source:HGNC Symbol;Acc:HGNC:4829]
+ENSG00000213931,HBE1,protein_coding,hemoglobin subunit epsilon 1 [Source:HGNC Symbol;Acc:HGNC:4830]
+ENSG00000213934,HBG1,protein_coding,hemoglobin subunit gamma 1 [Source:HGNC Symbol;Acc:HGNC:4831]
+ENSG00000196565,HBG2,protein_coding,hemoglobin subunit gamma 2 [Source:HGNC Symbol;Acc:HGNC:4832]
+ENSG00000206177,HBM,protein_coding,hemoglobin subunit mu [Source:HGNC Symbol;Acc:HGNC:4826]
+ENSG00000086506,HBQ1,protein_coding,hemoglobin subunit theta 1 [Source:HGNC Symbol;Acc:HGNC:4833]
+ENSG00000130656,HBZ,protein_coding,hemoglobin subunit zeta [Source:HGNC Symbol;Acc:HGNC:4835]
+ENSG00000206178,HBZP1,unprocessed_pseudogene,hemoglobin subunit zeta pseudogene 1 [Source:HGNC Symbol;Acc:HGNC:4836]

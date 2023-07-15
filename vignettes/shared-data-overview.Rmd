@@ -1,0 +1,290 @@
+---
+title: "shared-data-overview"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{shared-data-overview}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval=FALSE
+)
+```
+
+# Processing Pipeline Documentation
+
+See the link below -- a complete list of the processing software, and citations
+is available. Use this for paper methods/citations:
+
+https://nf-co.re/rnaseq
+
+# Important notes and caveats
+
+There is an on-going effort to identify not only samples
+which are obviously mislabeled due to sex chromosome expression, but also by
+comparing the RNAseq variants against the WGS variants. Not all RNAseq samples
+have WGS data, and to address this we are in the process of inferring a
+pedigree from the RNAseq data, and comparing that against the sample labels.
+When and if this yields results, we will make an intermediate release.
+
+Additionally, it has been noted by other groups that `age` is confounded with
+`plate`. How to deal with this hasn't yet been resolved. An current effort
+is epxloring how to use the 'control' samples, which are described below.
+
+## Samples with purpose == "control"
+
+There are three different set of samples which have `purpose` with level
+`control`. I have not added additional columns to identify these, but
+here is how they may be parsed:
+
+1. poolA: or any variation of pool_a, etc. The heterogeneity in
+these names exists because this is how the sample names arrive to me. PoolA
+controls in each batch come from the same biological sample. The biological
+sample was created by mixing a number of samples together, with equal parts
+male and female.
+
+2. poolB: or any variation of pool_b, etc. See above for the note on
+heterogeneity in the samplenames. This is a single male sample. The same
+biological sample is sequenced in each plate.
+
+3. samples whose subject begins with a numeric ID and have purpose == 'control'.
+These are deidentified samples, commonly referred to as 'phantom samples'. My
+understanding is that these samples are blinded so that they can be
+compared to other samples without bias. That said, if you want to re-identify
+these, a map is available. Mary and Rosa call these "phantom samples".
+
+# Subdirectories
+
+Below, I describe the subdirectories and their contents
+
+## R/
+
+This contains the scripts which produce the data in the /data directory. They
+are well commented and make it easy to change both feature and sample quality
+thresholds if you wish
+
+### extract_data_from_dds.R
+
+This script is how I extract data from the DeseqDataObject to csv. I include
+this b/c the DeseqDataObject is a child of the core bioconductor
+object [SummarizedExperiment](https://bioconductor.org/packages/release/bioc/html/SummarizedExperiment.html)
+and as such offers a lot of functionality. Note that the rowData slot is
+filled with the annotations from Gencode v38. I commented this script and tried
+to make it clear enough that if and when you wish to adjust the filtering on
+either genes or samples, that it is easy to do so even if you are not familiar
+with SummarizedExperiment objects.
+
+### map_genes_to_kegg.R
+
+This is an example of how to use the DeseqDataObject/SummarizedExperiment
+roData slot, and a Bioconductor annotation object, to map the genes from the
+LLFS RNAseq to kegg terms
+
+### tally_sample.R
+
+This tallies both experiment and control samples by qc labels
+
+### transcript_to_gene_map.R
+
+Using the DeseqDataObject/SummarizedExperiment rowData slot, create a table
+which maps gene ids to tx ids.
+
+### utils.R
+
+A place for me to put other functions which might serve as examples of how to
+use the Bioconductor objects for those interested
+
+## notebooks/
+
+This has some 'tutorial'-like documentation on how to use edgeR, DESeq2 and
+some references to other bioconductor object types, ie GRanges, which I
+include in the deseq data set objects.
+
+### deseq_intro.Rmd
+
+A basic example of using the DeseqDataObject
+
+### edgeR_intro.Rmd
+
+A basic example of creating objects to use with edgeR
+
+### other_bioconductor_tools.Rmd
+
+An exmaple of using the DeseqDataObject/SummarizedExperiment object to extract
+a gene of interest from the LLFS RNAseq data and launch a UCSC browser session.
+There is also an example of using the gene to extract the sequence from within
+the Bioconductor universe.
+
+## data/
+
+This contains both the [deseq data objects](http://www.bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html#the-deseqdataset) -- these are children of the base
+bioconductor object SummarizedExperiment. As such, they store in the attributes
+both sample and feature level metadata, as well as the 'assay' slot, which for us
+is either gene or tx counts. Even if you are not using the actual DE functions
+of DESeq, since this is a child of SummarizedExperiment, and since I have filled
+the rowData slot with the Gencode v38 annotations, it offers a fast, scalable
+interface to the rest of the Bioconductor core (and not core) functionality.
+
+__Things to note__:  
+
+The difference between unfltr (unfiltered) and fltr (filtered) gene and tx
+counts is the application of a gene (row) filter on gene expression,
+and sample (column) filter on sample quality. Genes pass the gene expression
+filter if a given gene has greater than or equal to 3 counts per million in
+at least 98.5% of the samples. The sample quality filter is described in more
+detail in the sample_metadata_<date>.csv section below. You can see how these
+filters are constructed and applied in the `R/extract_data_from_dds.R` script.
+
+The data -- gene names, counts and sample metadata -- is also extracted to
+.csvs. Below is a description of each file:
+
+### dds_analysis_<date>_<gene,tx>.rds
+
+a Deseq Data Object with Granges in the rows (features), sample metadata in
+the columns, and the count data in the assays slot.
+
+There are two -- the one with the suffix _gene.rds has counts collapsed to genes.
+The one with _tx.rds has counts by transcript.
+
+Note that as of 20230316, these are called dds_analysis_... to signify that
+there has been a good deal of manipulation of the metadata done prior to
+distribution. In particular, there is an on-going effort to identify
+mislabeled samples, and relabel them. This required earlier standardization of
+the `visit` field, so that is no longer part of `R/extract_data_from_dds.R`.
+I kept some manipulations of the metadata in this file, however, to serve as
+examples of how to do this for those who might be interested.
+
+
+### sample_metadata_<date>.csv
+
+NOTE that this includes ALL samples, which means there are more rows in this
+sheet than there are columns in the count matricies below that have been
+(sample) filtered. A __failing__ sample is identified as such:
+
+```
+((mislabel == TRUE & relabelled==FALSE) | 
+      suspicious_sex==TRUE) |
+   percent_intergenic > 8 |
+   purpose=='control'
+
+```
+
+See `R/extract_data_from_dds.R` for more details on the filtering.
+
+Column Descriptions:
+
+ - __subject__: corresponds to whatdatall subject. See LLFS docs.
+
+ - __visit__: This information is extracted from the fastq filename. It has been
+ standardized to the following levels:  1, 2, 3, control. These levels bear no
+ relation to the whatdatall visitcode -- see below
+
+ - __visitcode__: This column has been added using the following mapping:
+    - if visit == 1, then visitcode = 1
+    - if visit == 2, then visitcode is either 3 or 4
+    - if visit == 3, then visitcode is either 6 or 7
+      - No subject can have visitcode 3 and 4, or visitcode 6 and 7,
+      so this mapping is one-to-one. See the LLFS documentation for more details,
+      and see R/extract_data_from_dds.R for code details  
+
+ - __plate__: categorical variable corresponding to the plate in which the sample
+ was processed at MGI. This column is factored so that each plate is represented
+ by an integer
+
+ - __plate_plain__: This is the actual directory name of each batch -- this helps
+ if you wish to get into the RNAseq data to extract alignment files, for instace
+
+ - __purpose__: either 'experiment' or 'control'. See the section "Samples with
+ purpose == 'control' above".
+
+ - __subject_count_headers__: this column corresponds to the columns of the count
+ matricies. The purpose is to make subsetting the count matricies easier. Eg, in R,
+ you could join the sample_metadata to (a set of) pheno table(s), subset, and then
+ do the following: `counts[,subset_metadata$count_header]`
+
+ - __percent_exonic, percent_intronic, percent_intergnic__: percent of the reads
+ in a given library which mapped to the identified genomic regions
+
+ - __percent_rRNA__: percent of the reads in a given library which map to the
+ features identified as rRNA in column 3 of the GTF
+
+ - __dupradar_intercept__: See the dupradar docs for more information. This is a
+ metric of duplication in the library.
+
+ - __alignable_percent__: percent of the library which aligned to the genome
+
+ - __Unique, Multi, Uncertain, Unalignable, Alignable, Filtered, Total__:
+ raw counts of reads which fit the given description
+
+ - __orig_subj_sex_visit_plate__: This column is a combination of the columns in
+ the description. This is retained to make it somewhat easier to trace back
+ so the original bam/fastq for the sample re-labels
+
+ - __mislabel__: Boolean. TRUE if the RNA variants did not match the corresponding
+ WGS DNA variants
+
+ - __relabelled__: Boolean. TRUE if a RNA variant was identified as mislabelled,
+ and a positive match could be found when comapring RNA variants to WGS DNA
+ variants
+
+ - __percent_hemoglobin__: percent of the reads of a given library from the 12 heme
+ genes identified in [the supplement of this paper](https://www.nature.com/articles/s41598-020-62801-6).
+
+ - __protein_coding_total__: total number of reads which map to protein coding
+ gene features
+
+ - __protein_coding_ratio__: ratio of the protein_coding_total to the total library
+ size
+
+ - __rn7sl_ratio__: There are two genes, RN7SL1 and RN7SL2, which can account for
+ up to 20% of the total library
+
+ - __inferred_sex__: The sex inferred from calculating PCs on the top 500 most
+ variable genes. The variation is driven by the sex chromosome expression.
+
+ - __suspicious_sex__: boolean, TRUE if the sample clusters with the sex opposite
+ from that identified in whatdatall
+
+ - __suspicious_sample__: subject 3586 groups with the pooled controls. However,
+ both visit 1 and visit 2 variants match the WGS 3586 variants (>97%) and
+ do not match any other samples. These appear to be correctly labelled, but
+ they seem to have unusual sex expression. I am also marking the pooled samples
+ from this plate as suspicious since these two apparently experimental samples
+ look so much like pooled controls. However, the pooled samples group with
+ the other pool samples as expected. This appear to be fine. This column
+ is no longer use to exclude samples from analysis.
+
+
+### unfltr_<gene,tx>\_id\_<date>.csv
+
+This corresponds to the rows of the __unfiltered__ counts.
+These originate from the gene_id or transcript_id of
+[gencode38](https://www.gencodegenes.org/human/release_38.html).
+
+### fltr_<gene,tx>\_id\_<date>.csv
+
+This corresponds to the rows of the __filtered__ counts. These originate from
+[gencode38](https://www.gencodegenes.org/human/release_38.html)
+
+### raw_unfltr_counts_<gene,tx>\_<date>.csv
+
+the 'count' matrix that results from tximport (see Overview) -- all genes,
+all samples
+
+### raw_fltr_counts_<gene,tx>\_<date>.csv
+
+Raw 'counts' with both expression and sample filters applied. 
+See R/extract_data_from_dds.R for details.
+
+### norm_fltr_counts_<gene,tx>\_<date>.csv
+
+Normalization 'counts' with both expression and sample filters applied. 
+See R/extract_data_from_dds.R for details. Normaliation method:  
+
+DESeq size factor (see the DESeq2 paper for details) and average transcript
+length normalized.
+

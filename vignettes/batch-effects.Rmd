@@ -1,0 +1,814 @@
+---
+title: "batch-effects"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{batch-effects}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval=FALSE
+)
+```
+
+# Introduction
+
+This is both batch effects, and also percent intergenic exploration. 
+This is (very clearly) part of my initial EDA that I have continued to use. 
+When the data was smaller -- ie, when we only had a couple hundred samples -- 
+this was fine. As the data has grown, this has become unweidly and it is in 
+need of refactoring. I typically run this on the HTCF cluster with 4 cpus and 
+60 GB.  
+
+Unlike the [Sex Mislabelling QC](articles/sex-label-check.html) and 
+[Expression QC](articles/expression-qc.html), in this there aren't any steps 
+that necessarily require updating the database for new samples.
+
+```{r}
+library(tidyverse)
+library(DESeq2)
+library(edgeR)
+library(caret)
+library(ggsci)
+library(RSQLite)
+library(here)
+library(llfsRnaseq)
+
+knitr::opts_chunk$set(
+  cache=TRUE,
+  include=FALSE,
+  echo=FALSE,
+  dpi=200,
+  fig.width = 14,
+  fig.height = 8
+)
+
+# set ggplot global options
+theme_set(theme_minimal())
+theme_update(text = element_text(size = 30),
+             panel.border = element_rect(colour = "black", 
+                                         fill = NA, 
+                                         size = 1))
+
+DDS_RDS_PATH = "llfs_rnaseq_data/dds_20230227_gene.rds"
+
+GENOME_ANNOT_TXDB_PATH = "llfs_rnaseq_data/gencode38_gtf_parsed_as_df_20210919.sqlite"
+
+# remove data objects which are not used after a given chunk
+CLEAN_UP = TRUE
+
+library(RColorBrewer)
+n <- 34
+qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',]
+PLATE_COLORS = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))[1:n]
+names(PLATE_COLORS) = seq(1,n)
+
+BiocParallel::register(BiocParallel::MulticoreParam(3))
+
+GENE_DDS_PATH = here("llfs_rnaseq_data/dds_20230713_gene.rds")
+```
+
+# Deduplicate by percent_intergenic
+
+There are duplicate (subject,visit) samples which result from both on-purpose 
+re-do samples, and also re-labelling of mislabeled samples. Regardless of why, 
+in this step we deduplicate by grouping by (subject,visit) and then selecting 
+only the sample with the minimum percent_intergenic. Note that if there is a 
+group of 1 (meaning, no duplicates), then that sample is always selected.
+
+```{r}
+dds = readRDS(GENE_DDS_PATH)
+
+# ensure that batch_id and sex are factored
+dds$batch_id = factor(dds$batch_id)
+dds$sex = factor(dds$sex)
+
+metadata = dds %>% 
+  colData() %>% 
+  as_tibble()
+
+dds_control = dds[, dds$sex=='control' |( !is.na(dds$relabel_reason) & dds$relabel_reason == 'phantom')]
+dds_control$purpose = 'control'
+
+dds_experiment = dds[,!dds$sample_id %in% dds_control$sample_id]
+dds_experiment$purpose = 'experiment'
+
+dedup_df = dds_experiment %>%
+  colData() %>%
+  as_tibble() %>%
+  group_by(subject,visit) %>%
+  filter(percent_intergenic == min(percent_intergenic)) %>%
+  ungroup()
+
+dedup_dds = cbind(dds_control, dds_experiment[,dds_experiment$sample_id %in% dedup_df$sample_id])
+
+```
+
+# Generate the initial QC data
+
+```{r}
+qc_datasets = batch_effect_qc_setup(dedup_dds, .015, 3)
+```
+
+# PCA plots -- looking for batch effects, outliers, etc...
+
+## all samples
+
+```{r, include = TRUE, fig.height=8, fig.width=14}
+
+qc_datasets$pca_df_list$all %>%
+  mutate(batch_id = as.factor(batch_id)) %>%
+ggplot(aes(x = PC1, y = PC2, color = batch_id)) +
+      geom_point(size = 2, alpha = .8) +
+      scale_color_manual(values = PLATE_COLORS)
+
+
+```
+
+
+## Passing samples, post expression filter
+No genes are excluded from the PC calculate (ie unlike the sex mislabel PCA 
+plots, which were done on the top 500 most variable genes)
+
+```{r, include = TRUE, fig.height=8, fig.width=14}
+
+qc_datasets$pca_df_list$passing %>%
+  mutate(batch_id = as.factor(batch_id)) %>%
+ggplot(aes(x = PC1, y = PC2, color = batch_id)) +
+      geom_point(size = 2, alpha = .8) +
+      scale_color_manual(values = PLATE_COLORS)
+
+#ggsave(here(sprintf("plots/pca_all_%s.png", as.character(format(Sys.time(), "%Y%m%d")))), bg="white")
+```
+
+
+## all samples, all genes (post expression filter)
+
+```{r with arrow,cache=TRUE, fig.height=8, fig.width=14}
+dir_change_by_percent_intergenic_plt = direction_change_in_percent_intergenic(qc_datasets$pca_df_list, 
+                                                PLATE_COLORS, 
+                                                slope_dir = -1)
+dir_change_by_percent_intergenic_plt +
+  coord_cartesian(xlim = c(-250,100), ylim = c(-150,150))
+  
+```
+
+## try to remove percent intergenic effect
+
+```{r calculate percent intergenic effect, cache=TRUE}
+dds_intergenic_only_design = filter_dds_restimate_sizeFactors(qc_datasets$dds, 
+                                                gene_fltr = qc_datasets$expr_fltr, 
+                                                qc_sample_fltr = NULL)
+
+design(dds_intergenic_only_design) = formula(~percent_intergenic)
+
+dds_intergenic_only_design = DESeq(dds_intergenic_only_design, parallel = TRUE)
+
+percent_intergenic_effect_removed = remove_parameter_effects(dds_intergenic_only_design,2)
+
+intergenic_only_design_projection = project_counts_onto_orig_pcs(dds_intergenic_only_design, percent_intergenic_effect_removed)
+
+after_intergenic_effect_removed = intergenic_only_design_projection[,c('PC1','PC2')] %>%
+  as_tibble(rownames='count_headers') %>%
+  left_join(as_tibble(colData(dds_intergenic_only_design)))
+```
+
+```{r with arrow post effect removed,cache=TRUE, fig.height=8, fig.width=14}
+only_passing_lm_percent_intergenic_effect_removed = 
+  broom::tidy(lm(percent_intergenic~PC1+PC2, 
+                 data = after_intergenic_effect_removed))
+
+delta_y = only_passing_lm_percent_intergenic_effect_removed %>% 
+  filter(term == "PC2") %>% 
+  pull(estimate)
+
+delta_x = only_passing_lm_percent_intergenic_effect_removed %>% 
+  filter(term == "PC1") %>% 
+  pull(estimate)
+
+qc_datasets$pca_df_list$all$sample_status = 
+  ifelse(qc_datasets$pca_df_list$all$purpose == "control", 
+         "control", 
+         as.character(qc_datasets$pca_df_list$all$sample_status))
+
+qc_datasets$pca_df_list$all$sample_status =
+  ifelse(qc_datasets$pca_df_list$all$sample_status == "control",
+         "control",
+         qc_datasets$pca_df_list$all$sample_status)
+
+after_intergenic_effect_removed %>%
+ggplot()+
+  geom_point(aes(x=PC1, y=PC2, color=sample_status), size = 3, alpha =.7) +
+  scale_color_manual(labels = c(">= 8 % intergenic", 
+                                "< 8 % intergenic",
+                                "control"),
+                     values = c("qc_fail" = "#DB4325",
+                                "qc_pass"="#006164",
+                                "control" = "#F4A000"))+
+  labs(color = "")  +
+  coord_cartesian(xlim = c(-250,100), ylim = c(-150,150)) +
+  geom_abline(slope = delta_y/delta_x)
+```
+
+# linear modelling
+
+
+## linear regression, predictors: plates, response: PC1 - 10
+
+```{r plate predicts pcs all data}
+
+passing_logNorm_counts =
+  assays(normTransform(qc_datasets$dds[qc_datasets$expr_fltr,
+                                       qc_datasets$sample_fltr]))[[1]]
+
+pca_passing_logNorm_counts = prcomp(t(passing_logNorm_counts))
+
+plate_predicts_pcs_with_plate_effect = before_after_pca_and_plate_regression_plots(
+  passing_logNorm_counts,
+  pca_passing_logNorm_counts,
+  'PC6',
+  'PC10',
+  as_tibble(colData(qc_datasets$dds[qc_datasets$expr_fltr, qc_datasets$sample_fltr])),
+  PLATE_COLORS,
+  "with plate effect")
+
+```
+
+### variance explained
+
+```{r, include = TRUE}
+plate_predicts_pcs_with_plate_effect$pc_pred_plate +
+  scale_y_continuous(breaks = seq(0,.7, .1)) +
+  coord_cartesian(ylim = c(0,.7))
+```
+
+### rsquared
+
+```{r, include = TRUE}
+plate_predicts_pcs_with_plate_effect$pcaplot
+```
+
+
+```{r}
+
+expr_fltr_passing_samples = qc_datasets$dds[qc_datasets$expr_fltr, qc_datasets$sample_fltr]
+
+design(expr_fltr_passing_samples) = formula(~batch_id)
+
+expr_fltr_passing_samples = DESeq(expr_fltr_passing_samples, parallel=TRUE)
+
+colnames(expr_fltr_passing_samples) = expr_fltr_passing_samples$count_headers
+
+plate_effect_effect_removed = 
+  remove_parameter_effects(expr_fltr_passing_samples,seq(2,34))
+
+plate_effect_removed_projection = 
+  project_counts_onto_orig_pcs(expr_fltr_passing_samples, 
+                               plate_effect_effect_removed)
+
+removed_effect_y_df = as_tibble(plate_effect_removed_projection, 
+                                rownames = 'sample') %>%
+  mutate(sample_id = as.numeric(str_remove(sample, "sample_"))) %>%
+  dplyr::select(sample_id, all_of(paste0("PC", seq(1,10)))) %>%
+  left_join(as_tibble(colData(expr_fltr_passing_samples)))
+```
+
+## linear regression, predictors: plates, response: PC1 - 10
+Interestingly, the difference between the variance explained by the vst, and 
+the variance explained by log2 norm counts is very different. The variance 
+explained on the vst data is greater than that of the log norm.
+
+```{r, include = TRUE, fig.height=4, fig.width=14 }
+test = prcomp(t(assays(normTransform(expr_fltr_passing_samples))[[1]]))
+
+effect_removed_pca = prcomp(t(plate_effect_effect_removed))
+
+percentVar_effect_removed <- effect_removed_pca$sdev^2 / 
+  sum( effect_removed_pca$sdev^2 )
+
+percentVar_passing_samples <- test$sdev^2 / 
+  sum( test$sdev^2 )
+
+percent_var_df = tibble(
+  data_state = factor(c(rep("prior", 10), rep("post", 10)), levels = c("prior", "post")),
+  PC = factor(c(seq(1,10), seq(1,10))),
+  variance_by_pc = c(percentVar_passing_samples[1:10], percentVar_effect_removed[1:10])
+)
+
+percent_var_df %>%
+  ggplot(aes(PC, variance_by_pc, fill = data_state))+geom_bar(stat="identity", position = "dodge")+
+  scale_fill_manual(values = c("prior"="#9E9AC8FF",
+                               "post" = "#FD8D3CFF"))
+```
+
+## lm plot
+
+
+```{r}
+plate_predicts_pcs_removed_plate_effect = before_after_pca_and_plate_regression_plots(
+  plate_effect_effect_removed,
+  pca_passing_logNorm_counts,
+  'PC6',
+  'PC10',
+  as_tibble(colData(qc_datasets$dds[qc_datasets$expr_fltr, qc_datasets$sample_fltr])),
+  PLATE_COLORS,
+  "with plate effect",
+  plate_predicts_pcs_with_plate_effect$pc_levels)
+```
+
+```{r}
+plate_predicts_pcs_with_plate_effect$pcaplot +
+  ggtitle("")
+
+ggsave(here(sprintf("plots/with_effect_pca_%s.png", as.character(format(Sys.time(), "%Y%m%d")))),
+       device = 'png',
+       bg = 'white',
+       width = 14, height = 8)
+```
+
+
+```{r}
+plate_predicts_pcs_removed_plate_effect$pcaplot +
+  ggtitle("")
+
+ggsave(here(sprintf("plots/effect_removed_pca_%s.png", as.character(format(Sys.time(), "%Y%m%d")))), 
+       device = 'png',
+       bg = 'white',
+       width = 14, height = 8)
+```
+
+
+```{r}
+plate_predicts_pcs_with_plate_effect$pc_pred_plate + 
+  ggtitle("") +
+  scale_y_continuous(breaks = seq(0,.7, .1)) +
+  coord_cartesian(ylim = c(0,.7))
+
+ggsave(here(sprintf("plots/plate_predicts_pcs_with_effect_%s.png" , as.character(format(Sys.time(), "%Y%m%d")))), 
+            device = 'png', 
+            bg = 'white', 
+            width = 14, 
+            height = 8,
+       dpi = 'print')
+```
+
+
+```{r}
+plate_predicts_pcs_removed_plate_effect$pc_pred_plate + 
+  ggtitle("") +
+  scale_y_continuous(breaks = seq(0,.7, .1)) +
+  coord_cartesian(ylim = c(0,.7)) 
+  
+ggsave(here(sprintf("plots/plate_predicts_pcs_removed_effect_%s.png", as.character(format(Sys.time(), "%Y%m%d")))), 
+            device = 'png', 
+            bg = 'white', 
+            width = 14, 
+            height = 8,
+       dpi = 'print')
+```
+
+
+```{r}
+
+scaled_log2_norm_passing_prcomp = prcomp(t(assays(normTransform(expr_fltr_passing_samples))[[1]]), scale. = TRUE)
+
+percentVar_passing_samples <- effect_removed_pca$sdev^2 / 
+  sum( effect_removed_pca$sdev^2 )
+
+percent_var_df = tibble(
+  PC = factor(seq(1,10), levels = c('2','4','8','1','7','9','3','5','10','6')),
+  variance_by_pc = c(percentVar_passing_samples[1:10])
+)
+
+scree_expr_passing_plate_removed = percent_var_df %>%
+  ggplot(aes(PC, variance_by_pc)) + 
+  geom_bar(stat="identity") +
+  # ggtitle("Scree plot: before removing plate effect") +
+  theme_minimal() +
+  theme_update(text = element_text(5),
+        panel.border = element_rect(color = 'black', fill = NA, size = 1))
+```
+
+```{r, include = TRUE, fig.height=5, fig.width=15}
+scree_expr_passing_plate_removed
+```
+
+```{r}
+library(patchwork)
+
+# note: check to make sure the pc orders are correct -- the labels 
+# are removed here, so easy to make mistake
+plt1 = plate_predicts_pcs_with_plate_effect$pc_pred_plate + 
+  scale_y_continuous(breaks = seq(0, .7, by = .1), limits = c(0,.7)) + 
+  ggtitle("") +
+  theme(axis.title.x=element_blank(), 
+        axis.text.x=element_blank())
+
+plt2 = scree_expr_passing_plate_removed +ggtitle("")
+
+plt3 = plate_predicts_pcs_with_plate_effect$pcaplot+ggtitle("")
+
+before_regress_out_plate_ptchwork = 
+  ((plt1 / plt2) | (plt3)) +
+  plot_layout(widths = c(2,1))+ plot_annotation(
+  title = 'Before Regressing Out Plate Effect'
+)
+
+ggsave(here(sprintf("plots/before_regress_out_plate_ptchwork_%s.png", 
+                    as.character(format(Sys.time(), "%Y%m%d")))), 
+       before_regress_out_plate_ptchwork, bg="white", width=15, height=10)
+
+
+before_regress_out_plate_ptchwork
+
+```
+
+```{r}
+# note: dims are 2490, 900 for after. try to make it the same for this one
+
+# note: check to make sure the pc orders are correct -- the labels 
+# are removed here, so easy to make mistake
+plt1 = plate_predicts_pcs_removed_plate_effect$pc_pred_plate + 
+  scale_y_continuous(breaks = seq(0, .7, by = .1), limits = c(0,.7)) + 
+  ggtitle("") +
+  theme(axis.title.x=element_blank(), 
+        axis.text.x=element_blank())
+
+plt2 = scree_expr_passing_plate_removed + ggtitle("")
+
+plt3 = plate_predicts_pcs_removed_plate_effect$pcaplot + ggtitle("")
+
+after_regress_out_plate_ptchwork = 
+  ((plt1 / plt2) | (plt3)) +
+  plot_layout(widths = c(2,1))+ plot_annotation(
+  title = 'After Regressing Out Plate Effect'
+)
+
+ggsave(here(sprintf("plots/after_regress_out_plate_ptchwork_%s.png", 
+                    as.character(format(Sys.time(), "%Y%m%d")))), 
+       after_regress_out_plate_ptchwork, bg="white", width=15, height=10)
+
+after_regress_out_plate_ptchwork
+```
+
+```{r include=FALSE}
+
+## logistic regression, predictors: PCs 1 to 10, response: plate
+# logistic_pcs_to_plate = glm(plate~PC1+PC2+PC3+PC4+PC5+PC6+PC7+PC8+PC9+PC10,
+#               data = log2_norm_passing_prcomp_df,
+#               family = 'binomial')
+```
+
+```{r}
+# knitr::kable(broom::tidy(logistic_pcs_to_plate) %>%
+#                arrange(p.value), format = "simple")
+```
+
+# Misc
+
+I am leaving the code below this point in the vignette, 
+but I don't typically use it or look at it. It is left here 'just in case'.
+
+## PC3 vs PC10
+
+```{r pc3 vs 10}
+ggplot(lm_data_removed_effect, aes(x=PC5, y=PC8, color=plate)) + 
+  geom_point(alpha=.5, size=3)+
+  stat_ellipse(aes(linetype=plate))+
+  # scale_linetype_manual(values = c(0,1,1,0,0,0,0,0,0,0,0)) +
+  scale_color_manual(values = PLATE_COLORS) +
+  xlim(-30,30) +
+  ylim(-75,75)
+```
+
+
+## PC7 vs PC10
+
+```{r pc7 vs 10}
+
+ggplot(lm_data, aes(x=PC10, y=PC7, color=plate)) + 
+  geom_point(alpha=.5, size=3)+
+  stat_ellipse(aes(linetype=plate))+
+  scale_linetype_manual(values = c(0,1,1,0,0,0)) +
+  scale_color_manual(values = c("3" = "#E64B35FF",
+                                "4"="#4DBBD5FF",
+                                "5"="#00A087FF",
+                                "6"="#3C5488FF",
+                                "7"="#F39B7FFF",
+                                "8"="#8491B4FF")) + 
+  ylim(-40, 40) +
+  xlim(-30,30)
+```
+
+```{r density plot}
+## density plot
+
+# # transparentTheme(trans = .9)
+# featurePlot(x = log2_norm_passing_prcomp_df[, 3:12],
+#             y = log2_norm_passing_prcomp_df$plate,
+#             plot = "density", 
+#             ## Pass in options to xyplot() to 
+#             ## make it prettier
+#             scales = list(x = list(relation="free"), 
+#                           y = list(relation="free")), 
+#             # adjust = 1.5, 
+#             auto.key = list(columns = 3))
+```
+
+
+## boxplot, PC1 to 10, by plate
+
+```{r boxplot pc1 to 10, fig.height=10}
+## boxplot, PC1 to 10, by plate
+featurePlot(x = log2_norm_passing_prcomp_df[, 6,10,12],
+            y = log2_norm_passing_prcomp_df$plate,
+            plot = "box",
+            # scales = list(y = list(relation="free"),
+            #               x = list(rot = 90)),
+            scales = list(x = list(rot = 90)),
+            layout = c(5,2),
+            ## Add a key at the top
+            auto.key = list(columns = 6))
+```
+
+# QC distributions
+
+## percent_intergenic distribution by plate
+
+```{r intergenic distr, fig.width=14, fig.height=8}
+
+meta = colData(qc_datasets$dds) %>%
+  as_tibble() %>%
+  mutate(sample_status = 
+           ifelse(purpose == "control", "control", as.character(sample_status)))
+
+
+
+percent_intergenic_vs_plate = meta %>%
+  ggplot(aes(x=plate,y=percent_intergenic)) +
+  geom_boxplot(outlier.shape = NA) +
+  geom_jitter(alpha = .8,size = 3, aes(color = sample_status)) +
+  scale_color_manual(values = c("qc_fail" = "#DB4325",
+                                "qc_pass"="#006164"))+
+  scale_color_manual(labels = c(">= 8 % intergenic", 
+                                "< 8 % intergenic",
+                                "control"),
+                     values = c("qc_fail" = "#DB4325",
+                                "qc_pass"="#006164",
+                                "control" = "#F4A000"))+
+  labs(color = "") +
+  theme(legend.position = "none")
+```
+
+```{r}
+library(patchwork)
+
+percent_intergenic_slide_plts = percent_intergenic_vs_plate + dir_change_by_percent_intergenic_plt +
+  plot_layout(widths = c(2,1))
+
+ggsave(here(sprintf('plots/percent_integenic_vs_plate_and_by_pc_%s.png',as.character(format(Sys.time(), "%Y%m%d")))), 
+       percent_intergenic_slide_plts, 
+       device = 'png', width = 30, height = 8, bg = 'white')
+```
+
+## percent_exonic vs percent_intergenic
+
+```{r exonic vs intergenic}
+meta %>%
+  ggplot(aes(y=percent_exonic,x=percent_intergenic)) +
+  geom_point(alpha = .8,size = 3, aes(color = sample_status)) +
+  scale_color_manual(values = c("qc_fail" = "#DB4325",
+                                "qc_pass"="#006164"))+
+  scale_color_manual(labels = c(">= 8 % intergenic", 
+                                "< 8 % intergenic",
+                                "control"),
+                     values = c("qc_fail" = "#DB4325",
+                                "qc_pass"="#006164",
+                                "control" = "#F4A000"))+
+  labs(color = "")
+```
+
+```{r}
+meta %>%
+  ggplot(aes(x=percent_intergenic,y=QualiMap_mqc_generalstats_qualimap_5_3_bias)) +
+  geom_point(alpha = .8,size = 3, aes(color = sample_status)) +
+  scale_color_manual(values = c("qc_fail" = "#DB4325",
+                                "qc_pass"="#006164"))+
+  scale_color_manual(labels = c(">= 8 % intergenic", 
+                                "< 8 % intergenic",
+                                "control"),
+                     values = c("qc_fail" = "#DB4325",
+                                "qc_pass"="#006164",
+                                "control" = "#F4A000"))+
+  labs(color = "")
+```
+
+```{r}
+meta %>%
+  ggplot(aes(x=percent_intergenic,y=insert_size_average)) +
+  geom_point(alpha = .8,size = 3, aes(color = sample_status)) +
+  scale_color_manual(values = c("qc_fail" = "#DB4325",
+                                "qc_pass"="#006164"))+
+  scale_color_manual(labels = c(">= 8 % intergenic", 
+                                "< 8 % intergenic",
+                                "control"),
+                     values = c("qc_fail" = "#DB4325",
+                                "qc_pass"="#006164",
+                                "control" = "#F4A000"))+
+  labs(color = "")
+```
+
+```{r}
+meta %>%
+  ggplot(aes(x=percent_intergenic,y=novel_splicing_events_pct)) +
+  geom_point(alpha = .8,size = 3, aes(color = sample_status)) +
+  scale_color_manual(values = c("qc_fail" = "#DB4325",
+                                "qc_pass"="#006164"))+
+  scale_color_manual(labels = c(">= 8 % intergenic", 
+                                "< 8 % intergenic",
+                                "control"),
+                     values = c("qc_fail" = "#DB4325",
+                                "qc_pass"="#006164",
+                                "control" = "#F4A000"))+
+  labs(color = "")
+```
+
+## percent_exonic vs percent_intronic
+
+```{r exonic vs intronic}
+meta %>%
+  ggplot(aes(x=percent_exonic,y=percent_intronic)) +
+  geom_point(alpha = .8,size = 3, aes(color = sample_status)) +
+  scale_color_manual(values = c("qc_fail" = "#DB4325",
+                                "qc_pass"="#006164"))+
+    scale_color_manual(labels = c(">= 8 % intergenic", 
+                                "< 8 % intergenic",
+                                "control"),
+                     values = c("qc_fail" = "#DB4325",
+                                "qc_pass"="#006164",
+                                "control" = "#F4A000"))+
+  labs(color = "")
+```
+
+## percent_intronic vs percent_intergenic
+
+```{r percent intronic vs percent intergenic}
+meta %>%
+  ggplot(aes(y=percent_intronic,x=percent_intergenic)) +
+  geom_point(alpha = .8,size = 3, aes(color = sample_status)) +
+  scale_color_manual(values = c("qc_fail" = "#DB4325",
+                                "qc_pass"="#006164")) +  
+  scale_color_manual(labels = c(">= 8 % intergenic", 
+                                "< 8 % intergenic",
+                                "control"),
+                     values = c("qc_fail" = "#DB4325",
+                                "qc_pass"="#006164",
+                                "control" = "#F4A000"))+
+  labs(color = "")
+```
+
+# counts and count filtering
+
+First set are the distribution of log2 counts. Next set are sparsity 
+plots (from deseq)
+
+Sparsity Plot Description (From DESeq)
+
+A simple plot of the concentration of counts in a single sample over the 
+sum of counts per gene. Not technically the same as "sparsity", but this plot 
+is useful diagnostic for datasets which might not fit a negative binomial 
+assumption: genes with many zeros and individual very large counts are 
+difficult to model with the negative binomial distribution.
+
+## distribution of counts -- all samples, no filter
+
+```{r counts distr all, cache=TRUE}
+as_tibble(cpm(counts(qc_datasets$dds), log=TRUE), 
+          rownames = "gene_id") %>% 
+  pivot_longer(-gene_id, names_to = "sample", values_to =  "log2cpm") %>% 
+  ggplot() + 
+  geom_density(aes(log2cpm, color=sample)) + 
+  theme(legend.position = "none")
+```
+
+## expression filter
+
+## gene data
+
+```{r gene tally all}
+tally_sql = "SELECT gene_type, COUNT(DISTINCT gene_id)
+FROM gencode38
+WHERE gene_type IN ('protein_coding', 'lncRNA')
+GROUP BY gene_type
+ORDER BY COUNT(gene_type) DESC;"
+
+gene_type_tally = dbGetQuery(gencode_38_db, tally_sql)
+
+knitr::kable(gene_type_tally, format = "simple")
+```
+
+## filtr genes
+
+```{r gene tally expr filter}
+library(glue)
+
+# AND gene_type IN ('protein_coding', 'lncRNA')
+tally_sql =
+glue_sql("SELECT gene_type, COUNT(DISTINCT gene_id)
+FROM gencode38
+WHERE gene_id IN ({gene_id_list*}) AND gene_type IN ('protein_coding', 'lncRNA')
+GROUP BY gene_type
+ORDER BY COUNT(gene_type) DESC",
+gene_id_list=rownames(dds_list$expr),
+.con = gencode_38_db
+)
+
+gene_type_tally = dbGetQuery(gencode_38_db, tally_sql)
+
+knitr::kable(gene_type_tally, format = "simple")
+```
+
+## fltr and qc fltr genes
+
+```{r gene tally expr fltr qc fltr}
+library(glue)
+
+
+tally_sql =
+glue_sql("SELECT DISTINCT gene_type, COUNT(DISTINCT gene_id)
+FROM gencode38
+WHERE gene_id IN ({gene_id_list*}) AND gene_type IN ('protein_coding', 'lncRNA')
+GROUP BY gene_type
+ORDER BY COUNT(gene_type) DESC",
+gene_id_list=rownames(dds_list$expr_passing),
+.con = gencode_38_db
+)
+
+gene_type_tally = dbGetQuery(gencode_38_db, tally_sql)
+
+knitr::kable(gene_type_tally, format = "simple")
+
+```
+
+## gene expr filter
+
+More than 3 counts per million in 4 of more (of 563) samples
+
+Number of genes: 19824 out of 60649. Total coding genes in gencode38 ~21k
+
+```{r count dist all, cache=TRUE}
+as_tibble(cpm(counts(filter_dds_restimate_sizeFactors(qc_datasets$dds, 
+                                                    gene_fltr = qc_datasets$expr_fltr)), log=TRUE), 
+          rownames = "gene_id") %>% 
+  pivot_longer(-gene_id, names_to = "sample", values_to =  "log2cpm") %>% 
+  left_join(as_tibble(colData(qc_datasets$dds)), by = c("sample" = "subject_count_headers")) %>%
+  # filter(plate %in% c(3,4,5,6,7,8)) %>%
+  ggplot() + 
+  geom_density(aes(log2cpm, color=sample)) + 
+  theme(legend.position = "none")+
+  ylim(0,.3)
+```
+
+## expression filter and QC filter
+
+```{r count dist expr filtr, cache=TRUE}
+as_tibble(cpm(counts(expr_fltr_passing_samples), log=TRUE), 
+          rownames = "gene_id") %>% 
+  pivot_longer(-gene_id, names_to = "sample", values_to =  "log2cpm") %>% 
+  ggplot() + 
+  geom_density(aes(log2cpm, color=sample)) + 
+  theme(legend.position = "none") +
+  ylim(0,.3)
+```
+
+## Sparsity: all samples, no filters
+
+```{r count dist expr fltr qc fltr, cache=TRUE}
+plotSparsity(dds_list$raw, normalized=TRUE)
+```
+
+## Sparsity: all samples, expression filter
+
+```{r sparsity2, cache=TRUE}
+plotSparsity(dds_list$expr, normalized=TRUE)
+```
+
+## Sparsity: all samples, expression filter + QC filter
+
+```{r sparsity3, cache=TRUE}
+plotSparsity(dds_list$expr_passing, normalized=TRUE)
+```
+
+```{r disconnect db}
+dbDisconnect(gencode_38_db)
+```
+
+```{r write out dds object to share directory, eval=FALSE}
+today = format(Sys.time(), "%Y%m%d")
+# write_rds(dds, paste0("../share_llfs_llfs_rnaseq_data/llfs_rnaseq_data/dds_0312_to_1011_", paste0(today, ".rds")))
+
+```

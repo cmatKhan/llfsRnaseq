@@ -1,0 +1,80 @@
+---
+title: "expression-qc"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{expression-qc}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval=FALSE
+)
+```
+
+# Introduction
+
+This QC step looks at the expression of the topmost expressed gene(s) in the 
+data set, and the expression of hemoglobin genes. This data is added to the 
+database and to the `dds` objects.  
+
+First, I connect to the database and load the genes `dds` data.
+
+```{r}
+library(DESeq2)
+library(tidyverse)
+library(RSQLite)
+library(here)
+
+con = dbConnect(RSQLite::SQLite(), 
+                here("llfs_rnaseq_data/llfs_rnaseq_database.sqlite"))
+
+dds = readRDS(here("llfs_rnaseq_data/dds_20230713_gene.rds"))
+```
+
+# Hemoglobin genes
+
+Supplement 1 of [this paper]() identifies 12 hemoglobin-related genes.
+
+```{r}
+
+hemoglobin_genes = read_csv(
+  system.file(package='llfsRnaseq', 'hemoglobin_genes.csv'))
+
+hemoglobin_gene_filter = 
+  str_remove(rownames(dds), "\\.\\d+$") %in% hemoglobin_genes$`Ensemble ID` 
+
+stopifnot(sum(hemoglobin_gene_filter) == 12)
+
+```
+
+# RN7SL1 and RN7SL2
+
+[RN7SL1](https://www.genecards.org/cgi-bin/carddisp.pl?gene=RN7SL1) and 
+[RN7SL2](https://www.genecards.org/cgi-bin/carddisp.pl?gene=RN7SL2) can, 
+troublingly, make up nearly 20% of some libraries. They 
+are consistently the loci which are assigned the greatest number of reads.
+
+```{r}
+rn7sl1 = 'ENSG00000276168'
+rn7sl2 = 'ENSG00000274012'
+
+rn7sl_filter = 
+  str_remove(rownames(dds), "\\.\\d+$") %in% c(rn7sl1, rn7sl2)
+
+stopifnot(sum(rn7sl_filter) == 2)
+
+```
+
+```{r}
+expression_qc_df = tibble(
+  sample_id = dds$sample_id,
+  library_size = colSums(counts(dds)),
+  protein_coding_total = colSums(counts(dds[rowRanges(dds)$gene_type=='protein_coding', ])),
+  hemoglobin_counts = colSums(counts(dds[hemoglobin_gene_filter,])),
+  rn7sl1_counts = colSums(counts(dds[rn7sl_filter,])))
+```
+

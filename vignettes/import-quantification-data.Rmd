@@ -1,0 +1,235 @@
+---
+title: "import-quantification-data"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{import-quantification-data}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval=FALSE
+)
+```
+
+# Introduction
+
+This vignette describes how to take the RSEM quantification, files which are 
+output by the nf-core/rnaseq pipeline, and collect them into a `DeseqDataSet` 
+object. The `DeseqDataSet` object inherits from the Bioconductor base class 
+`SummarizedExperiment`, and so is generally a useful container into which to 
+put this data, even if you do not plan to use `DESeq`.  
+
+Note that after creating the samplesheet, you should use it to run the pipeline, 
+but also to update the RNASeq database with the new samples.
+
+```{r txi_import}
+library(tidyverse)
+library(tximport)
+library(vroom)
+library(here)
+library(llfsRnaseq)
+
+TX_QUANTS = FALSE
+WRITE = FALSE
+
+quant_df = read_csv(here('llfs_rnaseq_data/quant_lookup.csv'))
+
+isoform_list = setNames(quant_df$isoform_file,
+                      paste0('sample_',quant_df$sample_id))
+
+gene_list = setNames(quant_df$gene_file,
+                     paste0('sample_',quant_df$sample_id))
+
+if(TX_QUANTS){
+  txi_isoform = tximport(files = isoform_list,
+                     type='rsem',
+                     txIn = TRUE,
+                     txOut = TRUE,
+                     importer = vroom)
+} else{
+  # NOTE: See the bottom of this document for how this is created
+  tx2gene = vroom(here("llfs_rnaseq_data/gencode38_tx2gene_20210919.csv"))
+  # note that you could use the gene level data to import, in which case
+  # `txIn = FALSE`, but I ran into an error with zero count genes this way.
+  # importing from isoform and aggregating to gene works, and it is the way
+  # I have done it up to this point.
+  # See discussion here:
+  # https://bioinformatics.stackexchange.com/questions/13521/deseqdatasetfromtximport-alllengths-0-is-not-true
+  txi_gene = tximport(files = isoform_list,
+                   type='rsem',
+                   txIn=TRUE,
+                   txOut=FALSE,
+                   tx2gene = tx2gene,
+                   importer = vroom)
+}
+
+
+if(WRITE){
+  write_rds(txi, file.path(here('data'), paste0(NEW_TXI_NAME, ".rds")))
+}
+```
+
+# Creating a DDS object
+
+```{r create_dds}
+
+library(tidyverse)
+library(DESeq2)
+library(rtracklayer)
+library(here)
+
+# set variables
+
+WRITE = FALSE
+
+FORMULA = ~batch_alias+sex
+
+# whether to create the gene or tx level object. set to TRUE for tx
+TX = FALSE 
+
+# load data --------------------------------------------------------------------
+
+txi_list = list(
+  gene = here('llfs_rnaseq_data/txi_genes_20230710.rds'),
+  tx = here('llfs_rnaseq_data/txi_tx_20230710.rds')
+)
+
+if(TX){
+  txi = readRDS(txi_list$tx)
+  DDS_OUTPUT = here("llfs_rnaseq_data/dds_20220710_tx.rds")
+
+} else{
+  txi = readRDS(txi_list$gene)
+  DDS_OUTPUT = here("llfs_rnaseq_data/dds_20220710_gene.rds")
+}
+
+meta_df = read_csv(here("llfs_rnaseq_data/rnaseq_metadata_20230713.csv")) %>%
+  mutate(count_headers = paste0('sample_', sample_id),
+         sex = as.character(sex)) %>%
+  replace_na(list(sex='control')) %>%
+  mutate(batch_alias = factor(batch_alias),
+         sex = factor(sex))
+
+setdiff1 = length(setdiff(meta_df$count_headers, colnames(txi$abundance)))
+setdiff2 = length(setdiff(colnames(txi$abundance), meta_df$count_headers))
+
+stopifnot(setdiff1 == setdiff2 & setdiff1 == 0)
+
+txi$abundance = txi$abundance[,meta_df$count_headers]
+txi$counts = txi$counts[,meta_df$count_headers]
+txi$length = txi$length[,meta_df$count_headers]
+
+stopifnot(identical(meta_df$count_headers, colnames(txi$abundance)))
+
+# add row ranges
+gencode_38 = readRDS(here("llfs_rnaseq_data/gencode.v38_gtf_granges.rds")) 
+# rtracklayer::import("/ref/mblab/llfs_rnaseq_data/human/GRCh38/gencode/v38/gencode.v38.annotation.gtf")
+
+# filter the annotations depending on whether gene or tx quants
+if(TX){
+  gencode_38_fltr = gencode_38$transcript_id %in% rownames(txi$abundance)
+  ranges = gencode_38[gencode_38_fltr]
+  ranges = ranges[ranges$type == "transcript"]
+
+  # reorder and check
+  ranges = ranges[order(match(ranges$transcript_id,rownames(txi$abundance)))]
+  stopifnot(identical(ranges$transcript_id, rownames(txi$abundance)))
+} else{
+  gencode_38_fltr = gencode_38$gene_id %in% rownames(txi$abundance)
+  ranges = gencode_38[gencode_38_fltr]
+  ranges = ranges[ranges$type == "gene"]
+
+  # reorder and check
+  ranges = ranges[order(match(ranges$gene_id,rownames(txi$abundance)))]
+  stopifnot(identical(ranges$gene_id, rownames(txi$abundance)))
+}
+
+## unfiltered DDS object ----
+dds = DESeqDataSetFromTximport(txi = txi,
+                               colData = meta_df,
+                               rowRanges = ranges,
+                               design = FORMULA)
+
+rownames(dds) = rownames(txi$abundance)
+colnames(dds) = dds$count_headers
+
+# remove samples for which we do not have legal permission
+dds_legal = dds[,dds$legal == 'yes']
+
+
+if(WRITE){
+  write_rds(dds, DDS_OUTPUT)
+}
+
+
+```
+
+# Misc
+
+## Create tx2gene
+
+The transcript to gene file is just as it sounds -- a map from transcript
+identifiers to gene identifiers. This is used by tximport.
+
+```{r tx2gene}
+library(tidyverse)
+
+# this is v38 from gencode
+gtf = read_tsv("llfs_rnaseq_data/gencode.v38.annotation.gtf", comment="#", col_names = FALSE)
+
+btwn_quotes_regex = '"(.*?)"'
+remove_prefix_and_quotes_regex = '\ |\"'
+
+gtf_parsed = gtf %>%
+  # separate(X9, into=c("gene_id", "transcript_id", "other"), extra="merge", sep=";") %>%
+  mutate(gene_id = str_extract(X9, paste0("gene_id\ ", btwn_quotes_regex)),
+         transcript_id = str_extract(X9, paste0("transcript_id\ ", btwn_quotes_regex)),
+         gene_name = str_extract(X9, paste0("gene_name\ ", btwn_quotes_regex)),
+         gene_type = str_extract(X9, paste0("gene_type\ ", btwn_quotes_regex)),
+         exon_id = str_extract(X9, paste0("exon_id\ ", btwn_quotes_regex)),
+         exon_number = str_extract(X9, paste0("exon_number\ ", btwn_quotes_regex))) %>%
+  dplyr::rename(chromosome = X1,
+                source = X2,
+                sequence_ontology = X3,
+                start = X4,
+                stop = X5,
+                strand = X7,
+                phase = X8,
+                description_string = X9) %>%
+  mutate(gene_id = str_remove_all(gene_id, paste0('gene_id', remove_prefix_and_quotes_regex)),
+         transcript_id = str_remove_all(transcript_id, paste0('transcript_id', remove_prefix_and_quotes_regex)),
+         gene_name = str_remove_all(gene_name, paste0('gene_name', remove_prefix_and_quotes_regex)),
+         gene_type = str_remove_all(gene_type, paste0('gbkey', remove_prefix_and_quotes_regex)),
+         exon_id = str_remove_all(exon_number, paste0('exon_id', remove_prefix_and_quotes_regex)),
+         exon_number = str_remove_all(exon_number, paste0('exon_number', remove_prefix_and_quotes_regex))) %>%
+  dplyr::select(chromosome,
+                source,
+                sequence_ontology,
+                start,
+                stop,
+                X6,
+                strand,
+                phase,
+                gene_id,
+                transcript_id,
+                gene_name,
+                gene_type,
+                exon_id,
+                exon_number)
+
+# inspection showed that ___ duplicated tx go to the same gene id
+tx2gene = gtf_parsed %>%
+  filter(sequence_ontology == "exon") %>%
+  dplyr::select(transcript_id, gene_id, gene_type, gene_name, exon_id, exon_number) %>%
+  distinct(transcript_id, .keep_all = TRUE)
+
+# write_rds(gtf_parsed, "llfs_rnaseq_data/gencode38_gtf_parsed_as_df_20210919.csv")
+# 
+# write_csv(tx2gene, "llfs_rnaseq_data/gencode38_tx2gene_20210919.csv")
+
+```
+

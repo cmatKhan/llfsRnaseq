@@ -1,0 +1,140 @@
+---
+title: "llfsRnaseq"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{llfsRnaseq}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval=FALSE
+)
+```
+
+# Introduction
+
+This is an R package which provides access to the code which I use to process 
+the LLFS RNAseq data.  
+
+Release data will now have a version, eg `1.0.0` which refers to the version 
+of this software. When a new release is made, the **major** version number 
+will increment. For example, if the current version is `1.0.0`, 
+then the release data will be called `share_llfs_data_v1.0.0`. 
+On the next release, I will increase the version to `v2.0.0`, make a new 
+software release, and the shared llfs data will be `share_llfs_data_v2.0.0`.  
+
+If there are any corrections to the code **which affect the data**, but no 
+new data is released, then I will increment the *minor* version number. For 
+example, `v1.1.0` would mean that there is no new data from `v1.0.0`, but there 
+was a correction to code which affects the released data. There would then be a 
+data release called `share_llfs_data_v1.1.0`.  
+
+Finally, I will increment the *patch* version number if I make a change to the 
+code which does not affect the data. For example if I just clean up some code 
+in the vignettes or clarify some documentation. This would look like `v1.0.1`, 
+and there will be no new data release associated with the change in the change 
+in the *patch* number.  
+
+Any change in the software will be described in detail in the 
+[CHANGELOG](articles/news.html)
+
+** No LLFS Data, or anything which could be used to generate LLFS Data or IDs, 
+are shared in this repository. This is code only **  
+
+To get the data, talk to your lab and contact your points of contact for the 
+LLFS data administration. You do not need the code to use the data, but if you 
+are curious about how the data was processed from fastq to release, then it is 
+here.  
+
+Briefly, the steps are:
+
+1. Receive the data from MGI
+2. Use the MGI Demux sheet to create a input csv for the nf-core/rnaseq pipeline
+    - All of our data is processed with nf-core/rnaseq version 3.3
+3. Update the database with the new samples
+4. Call variants on the RNAseq fastq files, convert the VCF to GDS files, and 
+   then compare variants to the WGS data, if it exists for that subject.
+5. Update the database with the QC results from the RNAseq pipeline, and 
+   the RNA vs WGS variants
+6. Take a look at some feature so of the data (see articles/Initial QC)
+7. Update the NEWS.md file in this package, ensure that it builds correctly, 
+  create a versioned release, and distribute the share_lffs_data via box.  
+
+# The database
+
+The [llfs_rnaseq_database.sqlite](articles/database-overview.html) is now 
+distributed along with the released LLFS RNAseq data. It is intended to be a 
+formally normalized database that allows me (and you, if you want to use it) 
+to re-name samples without losing any information about what the original 
+label was, or lose any connection to the metrics which were generated under the 
+original label. This database also serves as a single collection of information 
+related to these samples, such as the "phantom sample" control sample 
+information. I suggest interacting with the database using any one (or more) 
+of the following:
+
+- **GUI**: [DB Browser for SQLite](https://sqlitebrowser.org/)
+- **R**: [DBI](https://rsqlite.r-dbi.org/)
+- **Python**: [sqlite3](https://docs.python.org/3/library/sqlite3.html)
+  
+# Package Usage
+
+## Requirements
+
+1. R >= 4.3.0
+
+## How-to
+
+You may simply be interested in how this data is processed. In which case, 
+looking through the Articles (see the navbar) might be of interest. You may 
+want to process data yourself, or wish to run my code. In that case, you should 
+install the package onto your machine. I suggest creating an R project to do 
+this, but it is not necessary.  
+
+```{r}
+# note, decrease the number of CPUs as appropriate for your system
+# this is the official, or as official as anything in R gets, R development 
+# toolset. It installs a lot of dependencies, and can take some time.
+install.packages('usethis', Ncpus=10)
+
+# you can name this whatever you like. If you enter it like this, R will create 
+# a project directory in your current working directory. If you would like to 
+# put the project directory somewhere else, provide a relative or absolute path
+usethis::create_project('llfs_rnaseq_dataprocessing')
+
+# at this point, R will launch a new session which is in the package. The only 
+# thing this means is that it is a dedicated directory with a .Rproj file. It 
+# is more or less the same as just making a directory and putting all the stuff 
+# related to whatever the 'project' is there.
+
+# this installs the llfsRnaseq R package
+remotes::install_github('https://github.com/cmatKhan/llfsRnaseq')
+```
+
+## What now?
+
+### Using the package as a user
+
+One thing you might want to do is open one of the vignettes. You can see the 
+available vignettes, after installing, with:
+
+```{r}
+vignette(package='llfsRnaseq')
+```
+
+You can pick and choose which you're interested and copy/paste the code into 
+your own script or notebook. You can also visit the github page and copy/paste 
+the entire notebook if you wish (they are in the vignettes/ directory). You 
+will also have access to the functions described in the Documentation's 
+API section.
+
+### Using the package as a developer
+
+In this case, just `git clone` the repo. The difference between a "package" and 
+a "project" is minimal -- a "package" more or less just has a `DESCRIPTION` 
+file which allows the `remotes::install_github()` command above to work. You 
+can treat this like a project directory and run the the notebooks in the 
+vignette, and `source` the code in the `R` directory.
