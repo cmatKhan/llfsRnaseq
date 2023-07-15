@@ -16,6 +16,7 @@
 #' @importFrom stringr str_remove
 #' @importFrom dplyr as_tibble mutate select left_join all_of filter arrange desc pull
 #' @importFrom broom tidy
+#' @importFrom stats lm
 #' @import ggplot2
 #'
 #' @export

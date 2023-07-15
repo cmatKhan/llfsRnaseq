@@ -1,0 +1,15 @@
+^renv$
+^renv\.lock$
+^llfsRnaseq\.Rproj$
+^\.Rproj\.user$
+^LICENSE\.md$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$
+^\.github$
+R/local
+llfs_rnaseq_data/*
+.zenodo.json
+plots/
+inst/CITATION.bib
+CITATION.cff

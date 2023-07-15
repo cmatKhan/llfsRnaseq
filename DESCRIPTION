@@ -22,23 +22,26 @@ Imports:
     dplyr,
     edgeR,
     ggplot2 (>= 3.4.1),
-    here (>= 1.0.1),
+    magrittr,
+    plyr (>= 1.8.8),
     purrr (>= 1.0.1),
-    rtracklayer (>= 1.58.0),
     stringr (>= 1.5.0),
-    tximport (>= 1.26.1),
-    vroom (>= 1.6.1)
+    SummarizedExperiment (>= 1.30.2)
 Depends: 
-    R (>= 2.10),
-    tidyverse (>= 2.0.0)
+    R (>= 2.10)
 Suggests: 
     caret (>= 6.0.94),
     ggrepel (>= 0.9.3),
+    here (>= 1.0.1),
     knitr,
     readxl (>= 1.4.2),
     rmarkdown,
     RSQLite (>= 2.3.1),
-    styler (>= 1.10.1)
+    rtracklayer (>= 1.60.0),
+    styler (>= 1.10.1),
+    tidyverse (>= 2.0.0),
+    tximport (>= 1.28.0),
+    vroom (>= 1.6.3)
 URL: https://cmatkhan.github.io/llfsRnaseq/
 VignetteBuilder: knitr
 LazyData: true

@@ -11,13 +11,13 @@ direction_change_in_percent_intergenic(
 )
 }
 \arguments{
+\item{pca_df_list}{list of PCA dfs}
+
 \item{plate_colors}{a vector corresponding to plate colors. should be equal
 in length to the number of plates}
 
 \item{slope_dir}{either 1 or -1, to flip slope depending on how the PCs are
 calculated}
-
-\item{vst_list}{all and passing sets}
 }
 \value{
 A plot showing the line which results from conducting a linear

@@ -2,8 +2,7 @@
 #'
 #' @importFrom DESeq2 design
 #' @importFrom SummarizedExperiment colData
-#' @importFrom stats coef
-#' @importFrom rlang is_formula
+#' @importFrom stats coef model.matrix
 #'
 #' @description subtract effect from norm counts of a single factor from
 #'   coef x design. coef is in normalized log space. dds must have been
@@ -23,7 +22,7 @@ remove_parameter_effects = function(deseq_object, col_indicies){
 
   # if the design(dds) is a formula
   if(is_formula(DESeq2::design(deseq_object))){
-    model_matrix = model.matrix(DESeq2::design(deseq_object),
+    model_matrix = stats::model.matrix(DESeq2::design(deseq_object),
                                 SummarizedExperiment::colData(deseq_object))
   } else if(is.matrix(DESeq2::design(deseq_object))){
     model_matrix = DESeq2::design(deseq_object)
@@ -31,7 +30,7 @@ remove_parameter_effects = function(deseq_object, col_indicies){
     stop("design(deseq_object) is not recognized as a formula or matrix")
   }
   browser()
-  coefficients = coef(deseq_object)[,col_indicies]
+  coefficients = stats::coef(deseq_object)[,col_indicies]
   batch_effect_matrix = model_matrix[,col_indicies]
 
   # note psuedocount

@@ -11,7 +11,7 @@
 #'
 #' @importFrom edgeR cpm
 #' @importFrom DESeq2 counts vst
-#' @importFrom SummarizedExperiment colData
+#' @importFrom SummarizedExperiment colData assay
 #' @importFrom dplyr as_tibble mutate select left_join all_of
 #'
 #' @return a list with the various vst data and dds data objects. This is
@@ -52,8 +52,8 @@ batch_effect_qc_setup <- function(dds,
   )
 
   pca_list <- list(
-    all = prcomp(t(assay(vst_list$all))),
-    passing = prcomp(t(assay(vst_list$passing)))
+    all = stats::prcomp(t(SummarizedExperiment::assay(vst_list$all))),
+    passing = stats::prcomp(t(SummarizedExperiment::assay(vst_list$passing)))
   )
 
   pca_df_list <- list(

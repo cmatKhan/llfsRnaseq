@@ -1,0 +1,19 @@
+{
+    "creators": [
+        {
+            "orcid": "0000-0002-2890-4242",
+            "affiliation": "Washington Univeristy, St Louis",
+            "name": "Mateusiak, Chase"
+        }
+    ],
+
+    "license": "GPL-3.0-or-later",
+
+    "title": "Long Life Family Study: RNA Sequencing",
+
+    "keywords": ["RNAseq", "RNA", "Genomics", "longevity"],
+
+    "communities": [
+        {"identifier": "bioinformatics"}
+    ]
+}

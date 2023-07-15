@@ -1,7 +1,7 @@
 #'
 #' make a plot showing the direction of percent intergenic on PC1/2 axis
 #'
-#' @param vst_list all and passing sets
+#' @param pca_df_list list of PCA dfs
 #' @param plate_colors a vector corresponding to plate colors. should be equal
 #'   in length to the number of plates
 #' @param slope_dir either 1 or -1, to flip slope depending on how the PCs are
@@ -9,6 +9,7 @@
 #'
 #' @import ggplot2
 #' @importFrom broom tidy
+#' @importFrom stats lm
 #'
 #' @return A plot showing the line which results from conducting a linear
 #'   module with formula percent_intergenic ~ PC1 + PC2
@@ -18,7 +19,7 @@ direction_change_in_percent_intergenic <- function(pca_df_list,
                                                    plate_colors,
                                                    slope_dir = 1) {
 
-  only_passing_lm <- broom::tidy(lm(percent_intergenic ~ PC1 + PC2,
+  only_passing_lm <- broom::tidy(stats::lm(percent_intergenic ~ PC1 + PC2,
     data = pca_df_list$passing
   ))
 
