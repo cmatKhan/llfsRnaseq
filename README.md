@@ -36,7 +36,7 @@ to use the DESeqDataSet object. DESeqDataSet objects inherit from the base
 bioconductor object 
 [SummarizedExperiment](https://www.bioconductor.org/packages/devel/bioc/vignettes/SummarizedExperiment/inst/doc/SummarizedExperiment.html).
  And, SummarizedExperiment is a core component of Bioconductor's 
- [Scalable Genomcis Toolset](https://pubmed.ncbi.nlm.nih.gov/28018047/). Namely, 
+ [Scalable Genomics Toolset](https://pubmed.ncbi.nlm.nih.gov/28018047/). Namely, 
  in the `dds` object, there are 3 data attributes: the `rowRages`, which store 
  the gencode v38 gene level gtf annotations as [GRanges](https://bioconductor.org/packages/release/bioc/vignettes/GenomicRanges/inst/doc/GenomicRangesIntroduction.html), 
  and you can access row (gene) and column (sample) information, each of which are 
