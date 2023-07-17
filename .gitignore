@@ -6,3 +6,6 @@
 docs
 inst/doc
 llfs_rnaseq_data/*
+llfs_rnaseq_data_*/
+*.tar.gz
+*.csv
