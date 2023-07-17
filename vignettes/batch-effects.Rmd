@@ -142,7 +142,7 @@ ggplot(aes(x = PC1, y = PC2, color = batch_id)) +
 
 ## all samples, all genes (post expression filter)
 
-```{r with arrow,cache=TRUE, fig.height=8, fig.width=14}
+```{r with arrow, fig.height=8, fig.width=14}
 dir_change_by_percent_intergenic_plt = direction_change_in_percent_intergenic(qc_datasets$pca_df_list, 
                                                 PLATE_COLORS, 
                                                 slope_dir = -1)
@@ -153,7 +153,7 @@ dir_change_by_percent_intergenic_plt +
 
 ## try to remove percent intergenic effect
 
-```{r calculate percent intergenic effect, cache=TRUE}
+```{r calculate percent intergenic effect}
 dds_intergenic_only_design = filter_dds_restimate_sizeFactors(qc_datasets$dds, 
                                                 gene_fltr = qc_datasets$expr_fltr, 
                                                 qc_sample_fltr = NULL)
@@ -171,7 +171,7 @@ after_intergenic_effect_removed = intergenic_only_design_projection[,c('PC1','PC
   left_join(as_tibble(colData(dds_intergenic_only_design)))
 ```
 
-```{r with arrow post effect removed,cache=TRUE, fig.height=8, fig.width=14}
+```{r with arrow post effect removed, fig.height=8, fig.width=14}
 only_passing_lm_percent_intergenic_effect_removed = 
   broom::tidy(lm(percent_intergenic~PC1+PC2, 
                  data = after_intergenic_effect_removed))
@@ -680,7 +680,7 @@ difficult to model with the negative binomial distribution.
 
 ## distribution of counts -- all samples, no filter
 
-```{r counts distr all, cache=TRUE}
+```{r counts distr all}
 as_tibble(cpm(counts(qc_datasets$dds), log=TRUE), 
           rownames = "gene_id") %>% 
   pivot_longer(-gene_id, names_to = "sample", values_to =  "log2cpm") %>% 
@@ -754,7 +754,7 @@ More than 3 counts per million in 4 of more (of 563) samples
 
 Number of genes: 19824 out of 60649. Total coding genes in gencode38 ~21k
 
-```{r count dist all, cache=TRUE}
+```{r count dist all}
 as_tibble(cpm(counts(filter_dds_restimate_sizeFactors(qc_datasets$dds, 
                                                     gene_fltr = qc_datasets$expr_fltr)), log=TRUE), 
           rownames = "gene_id") %>% 
@@ -769,7 +769,7 @@ as_tibble(cpm(counts(filter_dds_restimate_sizeFactors(qc_datasets$dds,
 
 ## expression filter and QC filter
 
-```{r count dist expr filtr, cache=TRUE}
+```{r count dist expr filtr}
 as_tibble(cpm(counts(expr_fltr_passing_samples), log=TRUE), 
           rownames = "gene_id") %>% 
   pivot_longer(-gene_id, names_to = "sample", values_to =  "log2cpm") %>% 
@@ -781,19 +781,19 @@ as_tibble(cpm(counts(expr_fltr_passing_samples), log=TRUE),
 
 ## Sparsity: all samples, no filters
 
-```{r count dist expr fltr qc fltr, cache=TRUE}
+```{r count dist expr fltr qc fltr}
 plotSparsity(dds_list$raw, normalized=TRUE)
 ```
 
 ## Sparsity: all samples, expression filter
 
-```{r sparsity2, cache=TRUE}
+```{r sparsity2}
 plotSparsity(dds_list$expr, normalized=TRUE)
 ```
 
 ## Sparsity: all samples, expression filter + QC filter
 
-```{r sparsity3, cache=TRUE}
+```{r sparsity3}
 plotSparsity(dds_list$expr_passing, normalized=TRUE)
 ```
 
