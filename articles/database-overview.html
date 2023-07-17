@@ -57,7 +57,10 @@
     </li>
 <li class="dropdown-header">Processing Raw Data</li>
     <li>
-      <a href="../articles/create-samplesheet.html">Creating A Samplesheet</a>
+      <a href="../articles/create-samplesheet.html">Running the nf-core/rnaseq pipeline</a>
+    </li>
+    <li>
+      <a href="../articles/rna-dna-variant-compare.html">Running the modified nf-core/rnavar pipeline</a>
     </li>
     <li class="divider">
     </li>
@@ -132,11 +135,13 @@
 <h2 id="tldr">tl;dr<a class="anchor" aria-label="anchor" href="#tldr"></a>
 </h2>
 <p>This database will make re-labelling samples less error prone, and
-will make it much easier to submit to NCBI when the time comes. For each
-<strong>table</strong> (not view) below, there is a brief description of
-the table, and the primary and foreign key(s) are shown. A full table
-description with all of the fields are available if you click the
-details for each table and view.</p>
+will make it much easier to submit to NCBI when the time comes. Below,
+you will find a description of each table and view in the database. For
+each table and view, the full desciption of each column is hidden by
+default – just click the “view full details” to expand a table that
+provides the definitions. For each <strong>table</strong> (but not view,
+which doesn’t have a primary key per se), the primary and foreign key(s)
+are shown in the Desription (not collapsed by default).</p>
 </div>
 <div class="section level2">
 <h2 id="introduction">Introduction<a class="anchor" aria-label="anchor" href="#introduction"></a>
@@ -221,76 +226,92 @@ LLFS RNAseq Metadata View
 </tr></thead>
 <tbody>
 <tr class="odd">
-<td>sample_id</td>
-<td></td>
-<td>INTEGER</td>
-<td>Primary key of the sample</td>
-</tr>
-<tr class="even">
-<td>batch_id</td>
-<td></td>
-<td>INTEGER</td>
-<td>Foreign key to the batch table</td>
-</tr>
-<tr class="odd">
-<td>batch_alias</td>
-<td></td>
-<td>TEXT</td>
-<td>Alias of the batch</td>
-</tr>
-<tr class="even">
-<td>fastq_id</td>
-<td></td>
-<td>TEXT</td>
-<td>Foreign key to the fastq table</td>
-</tr>
-<tr class="odd">
-<td>visit</td>
-<td></td>
-<td>TEXT</td>
-<td>Visit information for the sample</td>
-</tr>
-<tr class="even">
-<td>relabel_reason</td>
-<td></td>
-<td>TEXT</td>
-<td>Reason for relabeling the sample (or “NA” if not applicable)</td>
-</tr>
-<tr class="odd">
-<td>mislabelled</td>
-<td></td>
-<td>INTEGER</td>
-<td>Indicator of whether the sample is mislabeled (0 or 1)</td>
-</tr>
-<tr class="even">
-<td>suspicious_sex</td>
-<td></td>
-<td>INTEGER</td>
-<td>Indicator of whether the sample has suspicious sex (0 or 1)</td>
-</tr>
-<tr class="odd">
-<td>legal</td>
-<td></td>
-<td>TEXT</td>
-<td>Reason for legal status (“yes” if not applicable)</td>
-</tr>
-<tr class="even">
-<td>whatdatall_id</td>
-<td></td>
-<td>INTEGER</td>
-<td>Foreign key to the whatdatall table</td>
-</tr>
-<tr class="odd">
 <td>subject</td>
 <td></td>
 <td>INTEGER</td>
 <td>Subject information for the sample</td>
 </tr>
 <tr class="even">
+<td>visit</td>
+<td></td>
+<td>TEXT</td>
+<td>Despite it not being an officially defined variable, visit is what
+is used in the fastqfilename. This must be translated to visitcode in
+order to join the RNAseq data on (subject,visitcode) to the rest of the
+LLFS phenotype data</td>
+</tr>
+<tr class="odd">
+<td>visitcode</td>
+<td></td>
+<td>TEXT</td>
+<td>The whatdatall LLFS phenotype visitcode value. See the visitcode_map
+table for details on how this is derived from visit</td>
+</tr>
+<tr class="even">
 <td>sex</td>
 <td></td>
 <td>INTEGER</td>
-<td>Sex information for the sample</td>
+<td>The biological sex label of the sample, one of (0,1,2) where 0
+denotes a pooled control</td>
+</tr>
+<tr class="odd">
+<td>purpose</td>
+<td></td>
+<td>TEXT</td>
+<td>either ‘control’ or ‘experiment’. pooled and phantom samples are
+labelled ‘control’, all others are ‘experiment’</td>
+</tr>
+<tr class="even">
+<td>sample_notes</td>
+<td></td>
+<td>TEXT</td>
+<td>Sample level notes</td>
+</tr>
+<tr class="odd">
+<td>relabel_reason</td>
+<td></td>
+<td>TEXT</td>
+<td>Reason for relabeling the sample (or “none” if not applicable)</td>
+</tr>
+<tr class="even">
+<td>mislabelled</td>
+<td></td>
+<td>INTEGER</td>
+<td>See the sample table for more details. this is a boolean (0,1 where
+1 is TRUE) field which is TRUE if the sample was clearly mislabelled
+during the WGS comparison, but the actual label was not found (not all
+RNAseq samples are WGS’ed)</td>
+</tr>
+<tr class="odd">
+<td>suspicious_sex</td>
+<td></td>
+<td>INTEGER</td>
+<td>see the sample table for more details. This is this is a boolean
+(0,1 where 1 is TRUE) field which is TRUE if the sample clearly shows
+sex chromosome expression opposite from its label. This column exists
+because not all RNAseq subjects have WGS data, so a TRUE here means that
+the subject did not exist in the WGS set AND it shows evidence of being
+mislabeled by sex chrom expression</td>
+</tr>
+<tr class="even">
+<td>legal</td>
+<td></td>
+<td>TEXT</td>
+<td>Reason for legal status (“yes” if not applicable)</td>
+</tr>
+<tr class="odd">
+<td>sample_id</td>
+<td></td>
+<td>INTEGER</td>
+<td>Primary key of the sample table. See the sample table for more
+details</td>
+</tr>
+<tr class="even">
+<td>batch_id</td>
+<td></td>
+<td>INTEGER</td>
+<td>Primary key from the batch table. see the batch table for more
+details</td>
 </tr>
 <tr class="odd">
 <td>chromosome_x</td>
@@ -345,6 +366,36 @@ LLFS RNAseq Metadata View
 <td></td>
 <td>REAL</td>
 <td>Percentage of reads in intergenic regions</td>
+</tr>
+<tr class="even">
+<td>protein_coding_total</td>
+<td></td>
+<td>REAL</td>
+<td>raw reads over loci denoted “protein_coding” in the gtf (you can
+discover this by loading the <code>dds</code> object and doing this
+<code>rowRanges(dds)$type == 'protein_coding'</code>
+</td>
+</tr>
+<tr class="odd">
+<td>percent_protein_coding</td>
+<td></td>
+<td>REAL</td>
+<td>protein_coding_total / library_size. see the expression_qc table for
+more details</td>
+</tr>
+<tr class="even">
+<td>percent_hemoglobin</td>
+<td></td>
+<td>REAL</td>
+<td>total raw counts over 12 hemoglobin genes / library_size. see the
+expression_qc table for more details</td>
+</tr>
+<tr class="odd">
+<td>percent_rn7sl</td>
+<td></td>
+<td>REAL</td>
+<td>total raw counts over two loci that are consistently, by far, the
+loci with the most counts. See expression_qc for more details</td>
 </tr>
 </tbody>
 </table></details>

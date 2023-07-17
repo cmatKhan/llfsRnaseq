@@ -57,7 +57,10 @@
     </li>
 <li class="dropdown-header">Processing Raw Data</li>
     <li>
-      <a href="../articles/create-samplesheet.html">Creating A Samplesheet</a>
+      <a href="../articles/create-samplesheet.html">Running the nf-core/rnaseq pipeline</a>
+    </li>
+    <li>
+      <a href="../articles/rna-dna-variant-compare.html">Running the modified nf-core/rnavar pipeline</a>
     </li>
     <li class="divider">
     </li>
@@ -129,294 +132,105 @@
     
     
 <div class="section level2">
-<h2 id="processing-pipeline-documentation">Processing Pipeline Documentation<a class="anchor" aria-label="anchor" href="#processing-pipeline-documentation"></a>
+<h2 id="llfs_shared_data_">llfs_shared_data_<version></version><a class="anchor" aria-label="anchor" href="#llfs_shared_data_"></a>
 </h2>
-<p>See the link below – a complete list of the processing software, and
-citations is available. Use this for paper methods/citations:</p>
-<p><a href="https://nf-co.re/rnaseq" class="external-link uri">https://nf-co.re/rnaseq</a></p>
-</div>
-<div class="section level2">
-<h2 id="important-notes-and-caveats">Important notes and caveats<a class="anchor" aria-label="anchor" href="#important-notes-and-caveats"></a>
-</h2>
-<p>There is an on-going effort to identify not only samples which are
-obviously mislabeled due to sex chromosome expression, but also by
-comparing the RNAseq variants against the WGS variants. Not all RNAseq
-samples have WGS data, and to address this we are in the process of
-inferring a pedigree from the RNAseq data, and comparing that against
-the sample labels. When and if this yields results, we will make an
-intermediate release.</p>
-<p>Additionally, it has been noted by other groups that <code>age</code>
-is confounded with <code>plate</code>. How to deal with this hasn’t yet
-been resolved. An current effort is epxloring how to use the ‘control’
-samples, which are described below.</p>
+<p>This top level directory now contains the objects which themselves
+contain the shared data. The subdirectory <code>plain_text</code> now
+stores the <code>.csv</code> files which are extracted from these
+objects. For a more attractive view of this information, see <a href="file:///home/oguzkhan/code/llfsRnaseq/docs/articles/shared-data-overview.html">here</a></p>
 <div class="section level3">
-<h3 id="samples-with-purpose-control">Samples with purpose == “control”<a class="anchor" aria-label="anchor" href="#samples-with-purpose-control"></a>
+<h3 id="llfs_rnaseq_database-sqlite">llfs_rnaseq_database.sqlite<a class="anchor" aria-label="anchor" href="#llfs_rnaseq_database-sqlite"></a>
 </h3>
-<p>There are three different set of samples which have
-<code>purpose</code> with level <code>control</code>. I have not added
-additional columns to identify these, but here is how they may be
-parsed:</p>
-<ol style="list-style-type: decimal">
-<li><p>poolA: or any variation of pool_a, etc. The heterogeneity in
-these names exists because this is how the sample names arrive to me.
-PoolA controls in each batch come from the same biological sample. The
-biological sample was created by mixing a number of samples together,
-with equal parts male and female.</p></li>
-<li><p>poolB: or any variation of pool_b, etc. See above for the note on
-heterogeneity in the samplenames. This is a single male sample. The same
-biological sample is sequenced in each plate.</p></li>
-<li><p>samples whose subject begins with a numeric ID and have purpose
-== ‘control’. These are deidentified samples, commonly referred to as
-‘phantom samples’. My understanding is that these samples are blinded so
-that they can be compared to other samples without bias. That said, if
-you want to re-identify these, a map is available. Mary and Rosa call
-these “phantom samples”.</p></li>
-</ol>
+<p>This is a SQLite database which almost entirely functions to assign a
+unique ID to a specific biological sample which is then sequenced. The
+reason an invariable primary key has become important for biological
+samples is that we are re-labeling a number of samples (meaning,
+assigning a different ID/subject) for different reasons. Without a
+unique and invariable primary key across releases, it becomes extremely
+difficult to understand how and why a sample might behave differently.
+And, more importantly, it becomes even more difficult to relate a given
+sample in the cleaned, relabelled, shared data with the fastq file from
+which it originated (since the fastq file is labelled with a different
+ID).</p>
+<p>The database is fully defined and described <a href="https://cmatkhan.github.io/llfsRnaseq/articles/database-overview.html" class="external-link">here</a></p>
+</div>
+<div class="section level3">
+<h3 id="dds_analysis__genetx-rds">dds_analysis_<date>_&lt;gene,tx&gt;.rds</date><a class="anchor" aria-label="anchor" href="#dds_analysis__genetx-rds"></a>
+</h3>
+<p>a Deseq Data Object with Granges in the rows (features), sample
+metadata in the columns, and the count data in the assays slot.</p>
+<p>There are two – the one with the suffix _gene.rds has counts
+collapsed to genes. The one with _tx.rds has counts by transcript.</p>
+<p>These objects are used to create the <code>.csv</code> files in the
+subdirectory <code>plain_text</code>. See <a href="https://cmatkhan.github.io/llfsRnaseq/articles/creating-a-release.html" class="external-link">here</a>
+for details on how.</p>
+</div>
+<div class="section level3">
+<h3 id="plain_text">plain_text<a class="anchor" aria-label="anchor" href="#plain_text"></a>
+</h3>
+<p>This subdirectory stores <code>.csv</code> files, extracted from the
+<code>.rds</code> objects, of the counts and metadata.</p>
 </div>
 </div>
 <div class="section level2">
-<h2 id="subdirectories">Subdirectories<a class="anchor" aria-label="anchor" href="#subdirectories"></a>
+<h2 id="plain_text-1">plain_text<a class="anchor" aria-label="anchor" href="#plain_text-1"></a>
 </h2>
-<p>Below, I describe the subdirectories and their contents</p>
+<p>This is a subdirectory of the
+<code>llfs_shared_data_&lt;version&gt;</code> directory. It stores
+<code>.csv</code> files extracted from the objects in the parent
+directory.</p>
 <div class="section level3">
-<h3 id="r">R/<a class="anchor" aria-label="anchor" href="#r"></a>
+<h3 id="things-to-note">Things to note<a class="anchor" aria-label="anchor" href="#things-to-note"></a>
 </h3>
-<p>This contains the scripts which produce the data in the /data
-directory. They are well commented and make it easy to change both
-feature and sample quality thresholds if you wish</p>
-<div class="section level4">
-<h4 id="extract_data_from_dds-r">extract_data_from_dds.R<a class="anchor" aria-label="anchor" href="#extract_data_from_dds-r"></a>
-</h4>
-<p>This script is how I extract data from the DeseqDataObject to csv. I
-include this b/c the DeseqDataObject is a child of the core bioconductor
-object <a href="https://bioconductor.org/packages/release/bioc/html/SummarizedExperiment.html" class="external-link">SummarizedExperiment</a>
-and as such offers a lot of functionality. Note that the rowData slot is
-filled with the annotations from Gencode v38. I commented this script
-and tried to make it clear enough that if and when you wish to adjust
-the filtering on either genes or samples, that it is easy to do so even
-if you are not familiar with SummarizedExperiment objects.</p>
-</div>
-<div class="section level4">
-<h4 id="map_genes_to_kegg-r">map_genes_to_kegg.R<a class="anchor" aria-label="anchor" href="#map_genes_to_kegg-r"></a>
-</h4>
-<p>This is an example of how to use the
-DeseqDataObject/SummarizedExperiment roData slot, and a Bioconductor
-annotation object, to map the genes from the LLFS RNAseq to kegg
-terms</p>
-</div>
-<div class="section level4">
-<h4 id="tally_sample-r">tally_sample.R<a class="anchor" aria-label="anchor" href="#tally_sample-r"></a>
-</h4>
-<p>This tallies both experiment and control samples by qc labels</p>
-</div>
-<div class="section level4">
-<h4 id="transcript_to_gene_map-r">transcript_to_gene_map.R<a class="anchor" aria-label="anchor" href="#transcript_to_gene_map-r"></a>
-</h4>
-<p>Using the DeseqDataObject/SummarizedExperiment rowData slot, create a
-table which maps gene ids to tx ids.</p>
-</div>
-<div class="section level4">
-<h4 id="utils-r">utils.R<a class="anchor" aria-label="anchor" href="#utils-r"></a>
-</h4>
-<p>A place for me to put other functions which might serve as examples
-of how to use the Bioconductor objects for those interested</p>
-</div>
-</div>
-<div class="section level3">
-<h3 id="notebooks">notebooks/<a class="anchor" aria-label="anchor" href="#notebooks"></a>
-</h3>
-<p>This has some ‘tutorial’-like documentation on how to use edgeR,
-DESeq2 and some references to other bioconductor object types, ie
-GRanges, which I include in the deseq data set objects.</p>
-<div class="section level4">
-<h4 id="deseq_intro-rmd">deseq_intro.Rmd<a class="anchor" aria-label="anchor" href="#deseq_intro-rmd"></a>
-</h4>
-<p>A basic example of using the DeseqDataObject</p>
-</div>
-<div class="section level4">
-<h4 id="edger_intro-rmd">edgeR_intro.Rmd<a class="anchor" aria-label="anchor" href="#edger_intro-rmd"></a>
-</h4>
-<p>A basic example of creating objects to use with edgeR</p>
-</div>
-<div class="section level4">
-<h4 id="other_bioconductor_tools-rmd">other_bioconductor_tools.Rmd<a class="anchor" aria-label="anchor" href="#other_bioconductor_tools-rmd"></a>
-</h4>
-<p>An exmaple of using the DeseqDataObject/SummarizedExperiment object
-to extract a gene of interest from the LLFS RNAseq data and launch a
-UCSC browser session. There is also an example of using the gene to
-extract the sequence from within the Bioconductor universe.</p>
-</div>
-</div>
-<div class="section level3">
-<h3 id="data">data/<a class="anchor" aria-label="anchor" href="#data"></a>
-</h3>
-<p>This contains both the <a href="http://www.bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html#the-deseqdataset" class="external-link">deseq
-data objects</a> – these are children of the base bioconductor object
-SummarizedExperiment. As such, they store in the attributes both sample
-and feature level metadata, as well as the ‘assay’ slot, which for us is
-either gene or tx counts. Even if you are not using the actual DE
-functions of DESeq, since this is a child of SummarizedExperiment, and
-since I have filled the rowData slot with the Gencode v38 annotations,
-it offers a fast, scalable interface to the rest of the Bioconductor
-core (and not core) functionality.</p>
-<p><strong>Things to note</strong>:</p>
 <p>The difference between unfltr (unfiltered) and fltr (filtered) gene
 and tx counts is the application of a gene (row) filter on gene
 expression, and sample (column) filter on sample quality. Genes pass the
 gene expression filter if a given gene has greater than or equal to 3
 counts per million in at least 98.5% of the samples. The sample quality
 filter is described in more detail in the sample_metadata_<date>.csv
-section below. You can see how these filters are constructed and applied
-in the <code>R/extract_data_from_dds.R</code> script.</date></p>
-<p>The data – gene names, counts and sample metadata – is also extracted
-to .csvs. Below is a description of each file:</p>
-<div class="section level4">
-<h4 id="dds_analysis__genetx-rds">dds_analysis_<date>_&lt;gene,tx&gt;.rds</date><a class="anchor" aria-label="anchor" href="#dds_analysis__genetx-rds"></a>
-</h4>
-<p>a Deseq Data Object with Granges in the rows (features), sample
-metadata in the columns, and the count data in the assays slot.</p>
-<p>There are two – the one with the suffix _gene.rds has counts
-collapsed to genes. The one with _tx.rds has counts by transcript.</p>
-<p>Note that as of 20230316, these are called dds_analysis_… to signify
-that there has been a good deal of manipulation of the metadata done
-prior to distribution. In particular, there is an on-going effort to
-identify mislabeled samples, and relabel them. This required earlier
-standardization of the <code>visit</code> field, so that is no longer
-part of <code>R/extract_data_from_dds.R</code>. I kept some
-manipulations of the metadata in this file, however, to serve as
-examples of how to do this for those who might be interested.</p>
+section below. You can see how these filters are applied in the vignette
+<a href="https://cmatkhan.github.io/llfsRnaseq/articles/creating-a-release.html" class="external-link">Setting
+Filters and sharing data</a></date></p>
+<p>Below is a description of each file:</p>
 </div>
-<div class="section level4">
-<h4 id="sample_metadata_-csv">sample_metadata_<date>.csv</date><a class="anchor" aria-label="anchor" href="#sample_metadata_-csv"></a>
-</h4>
-<p>NOTE that this includes ALL samples, which means there are more rows
-in this sheet than there are columns in the count matricies below that
-have been (sample) filtered. A <strong>failing</strong> sample is
-identified as such:</p>
-<pre><code><span><span class="op">(</span><span class="op">(</span><span class="va">mislabel</span> <span class="op">==</span> <span class="cn">TRUE</span> <span class="op">&amp;</span> <span class="va">relabelled</span><span class="op">==</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">|</span> </span>
-<span>      <span class="va">suspicious_sex</span><span class="op">==</span><span class="cn">TRUE</span><span class="op">)</span> <span class="op">|</span></span>
-<span>   <span class="va">percent_intergenic</span> <span class="op">&gt;</span> <span class="fl">8</span> <span class="op">|</span></span>
-<span>   <span class="va">purpose</span><span class="op">==</span><span class="st">'control'</span></span></code></pre>
-<p>See <code>R/extract_data_from_dds.R</code> for more details on the
-filtering.</p>
-<p>Column Descriptions:</p>
-<ul>
-<li><p><strong>subject</strong>: corresponds to whatdatall subject. See
-LLFS docs.</p></li>
-<li><p><strong>visit</strong>: This information is extracted from the
-fastq filename. It has been standardized to the following levels: 1, 2,
-3, control. These levels bear no relation to the whatdatall visitcode –
-see below</p></li>
-<li>
-<p><strong>visitcode</strong>: This column has been added using the
-following mapping:</p>
-<ul>
-<li>if visit == 1, then visitcode = 1</li>
-<li>if visit == 2, then visitcode is either 3 or 4</li>
-<li>if visit == 3, then visitcode is either 6 or 7
-<ul>
-<li>No subject can have visitcode 3 and 4, or visitcode 6 and 7, so this
-mapping is one-to-one. See the LLFS documentation for more details, and
-see R/extract_data_from_dds.R for code details</li>
-</ul>
-</li>
-</ul>
-</li>
-<li><p><strong>plate</strong>: categorical variable corresponding to the
-plate in which the sample was processed at MGI. This column is factored
-so that each plate is represented by an integer</p></li>
-<li><p><strong>plate_plain</strong>: This is the actual directory name
-of each batch – this helps if you wish to get into the RNAseq data to
-extract alignment files, for instace</p></li>
-<li><p><strong>purpose</strong>: either ‘experiment’ or ‘control’. See
-the section “Samples with purpose == ‘control’ above”.</p></li>
-<li><p><strong>subject_count_headers</strong>: this column corresponds
-to the columns of the count matricies. The purpose is to make subsetting
-the count matricies easier. Eg, in R, you could join the sample_metadata
-to (a set of) pheno table(s), subset, and then do the following:
-<code>counts[,subset_metadata$count_header]</code></p></li>
-<li><p><strong>percent_exonic, percent_intronic,
-percent_intergnic</strong>: percent of the reads in a given library
-which mapped to the identified genomic regions</p></li>
-<li><p><strong>percent_rRNA</strong>: percent of the reads in a given
-library which map to the features identified as rRNA in column 3 of the
-GTF</p></li>
-<li><p><strong>dupradar_intercept</strong>: See the dupradar docs for
-more information. This is a metric of duplication in the
-library.</p></li>
-<li><p><strong>alignable_percent</strong>: percent of the library which
-aligned to the genome</p></li>
-<li><p><strong>Unique, Multi, Uncertain, Unalignable, Alignable,
-Filtered, Total</strong>: raw counts of reads which fit the given
-description</p></li>
-<li><p><strong>orig_subj_sex_visit_plate</strong>: This column is a
-combination of the columns in the description. This is retained to make
-it somewhat easier to trace back so the original bam/fastq for the
-sample re-labels</p></li>
-<li><p><strong>mislabel</strong>: Boolean. TRUE if the RNA variants did
-not match the corresponding WGS DNA variants</p></li>
-<li><p><strong>relabelled</strong>: Boolean. TRUE if a RNA variant was
-identified as mislabelled, and a positive match could be found when
-comapring RNA variants to WGS DNA variants</p></li>
-<li><p><strong>percent_hemoglobin</strong>: percent of the reads of a
-given library from the 12 heme genes identified in <a href="https://www.nature.com/articles/s41598-020-62801-6" class="external-link">the supplement
-of this paper</a>.</p></li>
-<li><p><strong>protein_coding_total</strong>: total number of reads
-which map to protein coding gene features</p></li>
-<li><p><strong>protein_coding_ratio</strong>: ratio of the
-protein_coding_total to the total library size</p></li>
-<li><p><strong>rn7sl_ratio</strong>: There are two genes, RN7SL1 and
-RN7SL2, which can account for up to 20% of the total library</p></li>
-<li><p><strong>inferred_sex</strong>: The sex inferred from calculating
-PCs on the top 500 most variable genes. The variation is driven by the
-sex chromosome expression.</p></li>
-<li><p><strong>suspicious_sex</strong>: boolean, TRUE if the sample
-clusters with the sex opposite from that identified in
-whatdatall</p></li>
-<li><p><strong>suspicious_sample</strong>: subject 3586 groups with the
-pooled controls. However, both visit 1 and visit 2 variants match the
-WGS 3586 variants (&gt;97%) and do not match any other samples. These
-appear to be correctly labelled, but they seem to have unusual sex
-expression. I am also marking the pooled samples from this plate as
-suspicious since these two apparently experimental samples look so much
-like pooled controls. However, the pooled samples group with the other
-pool samples as expected. This appear to be fine. This column is no
-longer use to exclude samples from analysis.</p></li>
-</ul>
+<div class="section level3">
+<h3 id="sample_metadata_-csv">sample_metadata_<date>.csv</date><a class="anchor" aria-label="anchor" href="#sample_metadata_-csv"></a>
+</h3>
+<p>See <a href="https://cmatkhan.github.io/llfsRnaseq/articles/database-overview.html#llfs_rnaseq_metadata" class="external-link">llfs_rnaseq_metadata</a>
+for details on what each variable in the metadata means.</p>
 </div>
-<div class="section level4">
-<h4 id="unfltr_genetx_id_-csv">unfltr_&lt;gene,tx&gt;_id_<date>.csv</date><a class="anchor" aria-label="anchor" href="#unfltr_genetx_id_-csv"></a>
-</h4>
+<div class="section level3">
+<h3 id="unfltr_genetx_id_-csv">unfltr_&lt;gene,tx&gt;_id_<date>.csv</date><a class="anchor" aria-label="anchor" href="#unfltr_genetx_id_-csv"></a>
+</h3>
 <p>This corresponds to the rows of the <strong>unfiltered</strong>
 counts. These originate from the gene_id or transcript_id of <a href="https://www.gencodegenes.org/human/release_38.html" class="external-link">gencode38</a>.</p>
 </div>
-<div class="section level4">
-<h4 id="fltr_genetx_id_-csv">fltr_&lt;gene,tx&gt;_id_<date>.csv</date><a class="anchor" aria-label="anchor" href="#fltr_genetx_id_-csv"></a>
-</h4>
+<div class="section level3">
+<h3 id="fltr_genetx_id_-csv">fltr_&lt;gene,tx&gt;_id_<date>.csv</date><a class="anchor" aria-label="anchor" href="#fltr_genetx_id_-csv"></a>
+</h3>
 <p>This corresponds to the rows of the <strong>filtered</strong> counts.
 These originate from <a href="https://www.gencodegenes.org/human/release_38.html" class="external-link">gencode38</a></p>
 </div>
-<div class="section level4">
-<h4 id="raw_unfltr_counts_genetx_-csv">raw_unfltr_counts_&lt;gene,tx&gt;_<date>.csv</date><a class="anchor" aria-label="anchor" href="#raw_unfltr_counts_genetx_-csv"></a>
-</h4>
+<div class="section level3">
+<h3 id="raw_unfltr_counts_genetx_-csv">raw_unfltr_counts_&lt;gene,tx&gt;_<date>.csv</date><a class="anchor" aria-label="anchor" href="#raw_unfltr_counts_genetx_-csv"></a>
+</h3>
 <p>the ‘count’ matrix that results from tximport (see Overview) – all
 genes, all samples</p>
 </div>
-<div class="section level4">
-<h4 id="raw_fltr_counts_genetx_-csv">raw_fltr_counts_&lt;gene,tx&gt;_<date>.csv</date><a class="anchor" aria-label="anchor" href="#raw_fltr_counts_genetx_-csv"></a>
-</h4>
+<div class="section level3">
+<h3 id="raw_fltr_counts_genetx_-csv">raw_fltr_counts_&lt;gene,tx&gt;_<date>.csv</date><a class="anchor" aria-label="anchor" href="#raw_fltr_counts_genetx_-csv"></a>
+</h3>
 <p>Raw ‘counts’ with both expression and sample filters applied. See
 R/extract_data_from_dds.R for details.</p>
 </div>
-<div class="section level4">
-<h4 id="norm_fltr_counts_genetx_-csv">norm_fltr_counts_&lt;gene,tx&gt;_<date>.csv</date><a class="anchor" aria-label="anchor" href="#norm_fltr_counts_genetx_-csv"></a>
-</h4>
+<div class="section level3">
+<h3 id="norm_fltr_counts_genetx_-csv">norm_fltr_counts_&lt;gene,tx&gt;_<date>.csv</date><a class="anchor" aria-label="anchor" href="#norm_fltr_counts_genetx_-csv"></a>
+</h3>
 <p>Normalization ‘counts’ with both expression and sample filters
 applied. See R/extract_data_from_dds.R for details. Normaliation
 method:</p>
 <p>DESeq size factor (see the DESeq2 paper for details) and average
 transcript length normalized.</p>
-</div>
 </div>
 </div>
   </div>

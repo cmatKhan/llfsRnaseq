@@ -9,9 +9,10 @@ articles:
   expression-qc: expression-qc.html
   import-quantification-data: import-quantification-data.html
   llfsRnaseq: llfsRnaseq.html
+  rna-dna-variant-compare: rna-dna-variant-compare.html
   sex-label-check: sex-label-check.html
   shared-data-overview: shared-data-overview.html
-last_built: 2023-07-17T17:55Z
+last_built: 2023-07-17T19:19Z
 urls:
   reference: https://github.com/cmatKhan/llfsRnaseq/reference
   article: https://github.com/cmatKhan/llfsRnaseq/articles
