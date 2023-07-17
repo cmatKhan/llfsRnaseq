@@ -18,10 +18,13 @@ knitr::opts_chunk$set(
 # tl;dr
 
 This database will make re-labelling samples less error prone, and will make 
-it much easier to submit to NCBI when the time comes. For each **table** 
-(not view) below, there is a brief description of the table, and the primary 
-and foreign key(s) are shown. A full table description with all of the fields 
-are available if you click the details for each table and view.
+it much easier to submit to NCBI when the time comes. Below, you will find a 
+description of each table and view in the database. For each table and view, 
+the full desciption of each column is hidden by default -- just click the 
+"view full details" to expand a table that provides the definitions. For 
+each **table** (but not view, which doesn't have a primary key per se), the 
+primary and foreign key(s) are shown in the Desription (not collapsed 
+by default).
 
 # Introduction
 
