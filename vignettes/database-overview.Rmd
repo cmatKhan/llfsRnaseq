@@ -90,18 +90,18 @@ released data
 
 | Field           | Purpose           | Datatype | Description                                               |
 |-----------------|-------------------|----------|-----------------------------------------------------------|
-| sample_id       |                   | INTEGER  | Primary key of the sample                                  |
-| batch_id        |                   | INTEGER  | Foreign key to the batch table                             |
-| batch_alias     |                   | TEXT     | Alias of the batch                                         |
-| fastq_id        |                   | TEXT     | Foreign key to the fastq table                             |
-| visit           |                   | TEXT     | Visit information for the sample                           |
-| relabel_reason  |                   | TEXT     | Reason for relabeling the sample (or "NA" if not applicable)|
-| mislabelled     |                   | INTEGER  | Indicator of whether the sample is mislabeled (0 or 1)      |
-| suspicious_sex  |                   | INTEGER  | Indicator of whether the sample has suspicious sex (0 or 1) |
-| legal           |                   | TEXT     | Reason for legal status ("yes" if not applicable)           |
-| whatdatall_id   |                   | INTEGER  | Foreign key to the whatdatall table                        |
 | subject         |                   | INTEGER  | Subject information for the sample                         |
-| sex             |                   | INTEGER  | Sex information for the sample                             |
+| visit           |                   | TEXT     | Despite it not being an officially defined variable, visit is what is used in the fastqfilename. This must be translated to visitcode in order to join the RNAseq data on (subject,visitcode) to the rest of the LLFS phenotype data|
+| visitcode           |                   | TEXT     | The whatdatall LLFS phenotype visitcode value. See the visitcode_map table for details on how this is derived from visit |
+| sex             |                   | INTEGER  | The biological sex label of the sample, one of (0,1,2) where 0 denotes a pooled control |
+| purpose  |                     | TEXT     | either 'control' or 'experiment'. pooled and phantom samples are labelled 'control', all others are 'experiment' |
+| sample_notes  |                     | TEXT     | Sample level notes |
+| relabel_reason  |                   | TEXT     | Reason for relabeling the sample (or "none" if not applicable)|
+| mislabelled     |                   | INTEGER  | See the sample table for more details. this is a boolean (0,1 where 1 is TRUE) field which is TRUE if the sample was clearly mislabelled during the WGS comparison, but the actual label was not found (not all RNAseq samples are WGS'ed)     |
+| suspicious_sex  |                   | INTEGER  | see the sample table for more details. This is this is a boolean (0,1 where 1 is TRUE) field which is TRUE if the sample clearly shows sex chromosome expression opposite from its label. This column exists because not all RNAseq subjects have WGS data, so a TRUE here means that the subject did not exist in the WGS set AND it shows evidence of being mislabeled by sex chrom expression |
+| legal           |                   | TEXT     | Reason for legal status ("yes" if not applicable)           |
+| sample_id       |                   | INTEGER  | Primary key of the sample table. See the sample table for more details|
+| batch_id        |                   | INTEGER  | Primary key from the batch table. see the batch table for more details|
 | chromosome_x    |                   | INTEGER  | Number of reads mapped to chromosome X                     |
 | chromosome_y    |                   | INTEGER  | Number of reads mapped to chromosome Y                     |
 | y_x_ratio       |                   | REAL     | Ratio of reads mapped to chromosome Y to chromosome X      |
@@ -111,6 +111,10 @@ released data
 | percent_exonic  |                   | REAL     | Percentage of reads in exonic regions                      |
 | percent_intronic|                   | REAL     | Percentage of reads in intronic regions                    |
 | percent_intergenic|                  | REAL     | Percentage of reads in intergenic regions                  |
+| protein_coding_total|                  | REAL     | raw reads over loci denoted "protein_coding" in the gtf (you can discover this by loading the `dds` object and doing this `rowRanges(dds)$type == 'protein_coding'`|
+| percent_protein_coding|                  | REAL     | protein_coding_total / library_size. see the expression_qc table for more details |
+| percent_hemoglobin|                  | REAL     | total raw counts over 12 hemoglobin genes / library_size. see the expression_qc table for more details |
+| percent_rn7sl|                  | REAL     | total raw counts over two loci that are consistently, by far, the loci with the most counts. See expression_qc for more details |
 
 </details>  
 

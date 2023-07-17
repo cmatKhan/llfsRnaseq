@@ -1,4 +1,3 @@
-[![DOI](https://zenodo.org/badge/665251410.svg)](https://zenodo.org/badge/latestdoi/665251410)
 [![R-CMD-check](https://github.com/cmatKhan/llfsRnaseq/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/cmatKhan/llfsRnaseq/actions/workflows/R-CMD-check.yaml)
 
 # Introduction

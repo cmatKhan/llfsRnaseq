@@ -17,8 +17,10 @@ navbar:
         href: articles/database-overview.html
       - text: -------------------------------
       - text: Processing Raw Data
-      - text: Creating A Samplesheet
+      - text: Running the nf-core/rnaseq pipeline
         href: articles/create-samplesheet.html
+      - text: Running the modified nf-core/rnavar pipeline
+        href: articles/rna-dna-variant-compare.html
       - text: --------------------------------
       - text: Initial QC
       - text: Sex Label Check

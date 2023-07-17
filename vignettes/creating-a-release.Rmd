@@ -35,14 +35,14 @@ library(here)
 # set environmental variables
 ## set to false to use gene level quantification, true to use
 ## tx level quantification
-TX_QUANTS = FALSE
+TX_QUANTS = TRUE 
 ## determines whether data is written to the project data directory
-WRITE = FALSE
+WRITE = TRUE 
 
 # read in data ----------------------------------------------------------------
 dds_list = list(
-  gene = here(here("llfs_rnaseq_data/dds_20230713_gene.rds")),
-  tx   = here(here("llfs_rnaseq_data/dds_20230713_tx.rds"))
+  gene = here(here("llfs_rnaseq_data/dds_20230717_gene.rds")),
+  tx   = here(here("llfs_rnaseq_data/dds_20230717_tx.rds"))
 )
 
 # note, clear out any design -- it isn't necessary for the manipulations below.
@@ -57,6 +57,27 @@ if(TX_QUANTS){
 }
 ```
 
+## Some sanity checks
+
+```{r}
+# some checks on the metadata -------------------------------------------------
+## ensure that there are no mislabel TRUE that have been relabelled already
+stopifnot(ncol(dds_full[,!is.na(dds_full$relabel_reason) & 
+                          dds_full$mislabel]) == 0)
+
+stopifnot(unique(dds_full$legal) == 'yes')
+```
+
+## Rename the count columns
+
+```{r}
+colnames(dds_full) = paste("subject", 
+                            dds_full$subject, 
+                            "visit", 
+                            dds_full$visit,
+                            sep="_")
+```
+
 ## Next, split the dds object into `control` and `experiment` sets
 
 These are as they sound -- the 'pool' and 'phantom' control samples are 
@@ -64,35 +85,20 @@ separated from the experimental samples. The control set is not exported
 from the `dds` object.
 
 ```{r}
-# add the `purpose` field -- note that this is temporary and will be added 
-# to the llfs_rnaseq_metadata view
-dds_full$purpose = 
-  ifelse(dds_full$visit == 0 | 
-           (!is.na(dds_full$relabel_reason) & 
-              dds_full$relabel_reason == 'phantom'),
-         'control',
-         'experiment')
-
-# some checks on the metadata -------------------------------------------------
-## ensure that there are no mislabel TRUE that have been relabelled already
-stopifnot(ncol(dds_full[,!is.na(dds_full$relabel_reason) & 
-                          dds_full$mislabel]) == 0)
-
-stopifnot(unique(dds_full$legal) == 'yes')
-
 # split into control and experimental sets ------------------------------------
 dds_control = dds_full[,dds_full$purpose == 'control']
 dds_experiment = dds_full[,dds_full$purpose == 'experiment']
+
+# remove the full object and garbage collect -- this is important with the `tx` 
+# data because it is so large
+rm(dds_full)
+gc()
 ```
 
 ## Create a gene-wise (expression) filter
 
 ```{r}
-# Filtering -------------------------------------------------------------------
-
-## Expression Filter ----
-
-# at the time of writing, num_samples comes out to 19
+# calculate what 15% of samples is for a given release
 num_samples = floor(ncol(dds_experiment)*.015)
 
 # filter out low expression genes
@@ -110,7 +116,7 @@ which create duplicate samples -- and those samples which fail QC.
 ## Deduplicate
 ## duplications can occur due to sample re-dos, or due to relabelling
 ## mislabelled samples
-dedup_sample_ids = colData(dds_experiment) %>%
+dedup_ids = colData(dds_experiment) %>%
   as_tibble() %>%
   group_by(subject, visit) %>%
   filter(percent_intergenic == min(percent_intergenic)) %>%
@@ -124,17 +130,21 @@ dedup_sample_ids = colData(dds_experiment) %>%
 # Note that a sample labelled "mislabelled" is one whose variants clearly 
 # mismatched the WGS sample of the same subject identifier, but for which 
 # there was no obvious match also found in the WGS subject set
-passing_qc_sample_ids = colData(dds_experiment) %>%
+qc_ids = colData(dds_experiment) %>%
   as_tibble() %>%
   # note the negation at the beginning of the conditional -- I find it easier
   # to think about samples which are failing rather than the other way around
   filter(!mislabelled, !suspicious_sex, percent_intergenic < 0.08) %>%
   pull(sample_id)
 
-analysis_sample_ids = intersect(dedup_filter, qc_filter)
+analysis_sample_ids = intersect(dedup_ids, qc_ids)
 ```
 
 ## Apply the filters and export plain text data
+
+Note that on my 30GB laptop, the tx data barely works -- max RAM goes up to 
+~28GB. Use a HPC or cloud service if you can. the `gc()` (garbage collector) 
+helps a bit to return some RAM to you when possible.
 
 ```{r}
 ## Apply Filters ----
@@ -143,15 +153,16 @@ analysis_sample_ids = intersect(dedup_filter, qc_filter)
 dds_experiment_passing = 
   dds_experiment[mid_expression_filter, 
                  dds_experiment$sample_id %in% analysis_sample_ids]
-
+gc()
 # add size factors to the dds object
 dds_experiment_passing = estimateSizeFactors(dds_experiment_passing)
-
+gc()
 # extract data from dds object ------------------------------------------------
 
+# note "unfltr" is still deduplicated
 output_list = list(
-  raw_unfltr_counts = as_tibble(counts(dds_full)),
-  unfltr_feature_id = tibble(gene_id = rownames(dds_full)),
+  raw_unfltr_counts = as_tibble(counts(dds_experiment[,dds_experiment$sample_id %in% dedup_ids])),
+  unfltr_feature_id = tibble(gene_id = rownames(dds_experiment[,dds_experiment$sample_id %in% dedup_ids])),
   raw_fltr_counts = as_tibble(counts(dds_experiment_passing)),
   norm_fltr_counts = as_tibble(counts(dds_experiment_passing, normalized=TRUE)),
   fltr_feature_id = tibble(gene_id = rownames(dds_experiment_passing))
@@ -176,7 +187,7 @@ if(WRITE){
   # metadata. Pay attention to this if you do want to re-write on the same
   # day
   if(!file.exists(sample_metadata_path)){
-    write_csv(as_tibble(colData(dds_full)), sample_metadata_path)
+    write_csv(as_tibble(colData(dds_experiment)), sample_metadata_path)
   }
 
   map(names(output_list),

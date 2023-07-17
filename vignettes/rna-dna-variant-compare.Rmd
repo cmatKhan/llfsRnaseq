@@ -1,0 +1,94 @@
+---
+title: "rna-dna-variant-compare"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{rna-dna-variant-compare}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval=FALSE
+)
+```
+
+# Introduction
+
+The goal of this exercise is to call variants on the RNAseq samples. These are 
+the papers/resources I used to get an idea of what the state of the art of 
+calling variants from bulk RNAseq:
+
+1. [GATK Calling Variants from Bulk RNAseq](https://gatk.broadinstitute.org/hc/en-us/articles/360035531192-RNAseq-short-variant-discovery-SNPs-Indels-)
+2. [bcbio bulk RNAseq variant calling pipeline](https://bcbio-nextgen.readthedocs.io/en/latest/contents/rnaseq_variants.html)
+3. [This personal blog which includes some variant level filtering suggestions](https://expert.cheekyscientist.com/how-to-do-variant-calling-from-rnaseq-ngs-data/)
+
+The following are good papers on what to do with RNA variants. This is offered 
+as hopefully a spur to pursue these methods:
+
+1. [Tools and best practices for data processing in allelic expression analysis](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-015-0762-6)
+    - This is from 2015, so it is worth checking against more recent papers. 
+    However, it seems still relevant, in particular the discussion on 
+    WASP and the alignment step in general.
+2. [Transcriptomic signatures across human tissues identify functional rare genetic variation](https://www.science.org/doi/10.1126/science.aaz5900)
+    - That's gold Jerry! Gold!
+3. [Assessing allele-specific expression across multiple tissues from RNA-seq read data](https://academic.oup.com/bioinformatics/article/31/15/2497/187677?login=false)
+4. [Leveraging allelic imbalance to refine fine-mapping for eQTL studies ](https://pubmed.ncbi.nlm.nih.gov/31834882/)
+
+Initially, the goal of the variant calling on the LLFS data is to find and 
+correct sample mislabels. The resources above, and my own trial and error 
+experimentation, show that it is indeed entirely reasonable to call variants 
+from the RNAseq samples and, where the same (labelled) subject has WGS data, 
+compare the RNA vs DNA variants. It turns out that doing this 
+on only one chromosome -- any autosome will do, and I frequently use chr21 -- 
+returns more than enough variant sites such that there is no loss of 
+specificity compared to comparing variants across the entire genome.  
+
+# Procedure
+
+I use a modified version of the nf-core/rnavar RNA variant calling pipeline, 
+which is based on the GATK protocol and uses their tools. You can find my 
+modifications [here](https://github.com/cmatKhan/rnavar/tree/bam_input). This 
+allows for **bam** input, rather than fastq, and allows us to use the bams 
+output by the RNAseq pipeline as opposed to starting from the alignment step. 
+I process these in batches of no more than 30 -- due to the way nextflow 
+handles tracking intermediate data, and the number of times the bam files have 
+to be manipulated, and therefore copied, the size of the `work` directory gets 
+very large, upwards of 10 terabytes.
+
+1. Create an input samplesheet. An example of the `bam` input samplesheet 
+   can be found 
+   [here](https://github.com/cmatKhan/llfsRnaseq/blob/main/inst/20230519.csv)
+
+2. Run the pipeline.
+    - First, [clone the repo]() and make sure that you switch to the `bam_input` 
+    branch.
+    - [This is an example](https://github.com/cmatKhan/llfsRnaseq/blob/main/inst/run_nf.sh) 
+    of the script I use to run the pipeline on HTCF 
+    (a cluster which uses SLURM). I have included 
+    [the config file](https://github.com/cmatKhan/llfsRnaseq/blob/main/inst/htcf.config) 
+    for HTCF, also.
+3. I have the pipeline to set to symlink rather than copy files from `work` to 
+   `results`, so when you move the `vcf` and `tabix` files from `scratch` to 
+   whatever long term storage you're using (brentlab HTCF users, I use LTOS),
+   make sure you tell the copy program to follow the symlinks and grab the 
+   actual file, for instance `--copy-links` using `rsync` or `-F` using `s3cmd`.
+4. Unless you're doing 30 or less samples, you'll need to repeat this procedure 
+   in batches of ~30.
+5. At this point, I use  
+   [the scripts in this R project](https://github.com/cmatKhan/llfs_rnaseq_variants) 
+   to convert the `vcf` files to `gds` files, and then use the WGS dna `gds` 
+   files to extract and compare variants (also with scripts in that repo).
+6. Finally, I add the result of at least the direct comparison to the 
+   `llfs_rnaseq_database`. I haven't yet made a table to track the summarized 
+   results of the all-by-all comparisons, where they are necessary for the 
+   obvious mislabels.
+   
+A work in progress is taking all of the gvcf files 
+(the modified nf-core/rnavar pipeline outputs put vcf and gvcf files), 
+combining them, and then using hte GATK joint variant caller. Doing this would 
+allow the calculation of a kinship matrix, which may help further confirm the 
+re-labelling, and also possibly identify and hopefully provide evidence for 
+re-labelling mislabeled samples which do not have WGS data.

@@ -40,7 +40,7 @@ and there will be no new data release associated with the change in the change
 in the *patch* number.  
 
 Any change in the software will be described in detail in the 
-[CHANGELOG](articles/news.html)
+[CHANGELOG](https://cmatkhan.github.io/llfsRnaseq/news/index.html)
 
 ** No LLFS Data, or anything which could be used to generate LLFS Data or IDs, 
 are shared in this repository. This is code only **  
@@ -66,7 +66,7 @@ Briefly, the steps are:
 
 # The database
 
-The [llfs_rnaseq_database.sqlite](articles/database-overview.html) is now 
+The [llfs_rnaseq_database.sqlite](https://cmatkhan.github.io/llfsRnaseq/articles/database-overview.html) is now 
 distributed along with the released LLFS RNAseq data. It is intended to be a 
 formally normalized database that allows me (and you, if you want to use it) 
 to re-name samples without losing any information about what the original 
