@@ -132,8 +132,11 @@
     
     
 <div class="section level2">
-<h2 id="introduction">Introduction<a class="anchor" aria-label="anchor" href="#introduction"></a>
+<h2 id="importing-quantification-data">Importing Quantification Data<a class="anchor" aria-label="anchor" href="#importing-quantification-data"></a>
 </h2>
+<div class="section level3">
+<h3 id="introduction">Introduction<a class="anchor" aria-label="anchor" href="#introduction"></a>
+</h3>
 <p>This vignette describes how to take the RSEM quantification, files
 which are output by the nf-core/rnaseq pipeline, and collect them into a
 <code>DeseqDataSet</code> object. The <code>DeseqDataSet</code> object
@@ -144,56 +147,20 @@ container into which to put this data, even if you do not plan to use
 <p>Note that after creating the samplesheet, you should use it to run
 the pipeline, but also to update the RNASeq database with the new
 samples.</p>
-<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://tidyverse.tidyverse.org" class="external-link">tidyverse</a></span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/mikelove/tximport" class="external-link">tximport</a></span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://vroom.r-lib.org" class="external-link">vroom</a></span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://here.r-lib.org/" class="external-link">here</a></span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/cmatKhan/llfsRnaseq">llfsRnaseq</a></span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">TX_QUANTS</span> <span class="op">=</span> <span class="cn">FALSE</span></span>
-<span><span class="va">WRITE</span> <span class="op">=</span> <span class="cn">FALSE</span></span>
-<span></span>
-<span><span class="va">quant_df</span> <span class="op">=</span> <span class="fu"><a href="https://readr.tidyverse.org/reference/read_delim.html" class="external-link">read_csv</a></span><span class="op">(</span><span class="fu"><a href="https://here.r-lib.org//reference/here.html" class="external-link">here</a></span><span class="op">(</span><span class="st">'llfs_rnaseq_data/quant_lookup.csv'</span><span class="op">)</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">isoform_list</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/setNames.html" class="external-link">setNames</a></span><span class="op">(</span><span class="va">quant_df</span><span class="op">$</span><span class="va">isoform_file</span>,</span>
-<span>                      <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">'sample_'</span>,<span class="va">quant_df</span><span class="op">$</span><span class="va">sample_id</span><span class="op">)</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">gene_list</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/setNames.html" class="external-link">setNames</a></span><span class="op">(</span><span class="va">quant_df</span><span class="op">$</span><span class="va">gene_file</span>,</span>
-<span>                     <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">'sample_'</span>,<span class="va">quant_df</span><span class="op">$</span><span class="va">sample_id</span><span class="op">)</span><span class="op">)</span></span>
-<span></span>
-<span><span class="kw">if</span><span class="op">(</span><span class="va">TX_QUANTS</span><span class="op">)</span><span class="op">{</span></span>
-<span>  <span class="va">txi_isoform</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/pkg/tximport/man/tximport.html" class="external-link">tximport</a></span><span class="op">(</span>files <span class="op">=</span> <span class="va">isoform_list</span>,</span>
-<span>                     type<span class="op">=</span><span class="st">'rsem'</span>,</span>
-<span>                     txIn <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>                     txOut <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>                     importer <span class="op">=</span> <span class="va">vroom</span><span class="op">)</span></span>
-<span><span class="op">}</span> <span class="kw">else</span><span class="op">{</span></span>
-<span>  <span class="co"># NOTE: See the bottom of this document for how this is created</span></span>
-<span>  <span class="va">tx2gene</span> <span class="op">=</span> <span class="fu"><a href="https://vroom.r-lib.org/reference/vroom.html" class="external-link">vroom</a></span><span class="op">(</span><span class="fu"><a href="https://here.r-lib.org//reference/here.html" class="external-link">here</a></span><span class="op">(</span><span class="st">"llfs_rnaseq_data/gencode38_tx2gene_20210919.csv"</span><span class="op">)</span><span class="op">)</span></span>
-<span>  <span class="co"># note that you could use the gene level data to import, in which case</span></span>
-<span>  <span class="co"># `txIn = FALSE`, but I ran into an error with zero count genes this way.</span></span>
-<span>  <span class="co"># importing from isoform and aggregating to gene works, and it is the way</span></span>
-<span>  <span class="co"># I have done it up to this point.</span></span>
-<span>  <span class="co"># See discussion here:</span></span>
-<span>  <span class="co"># https://bioinformatics.stackexchange.com/questions/13521/deseqdatasetfromtximport-alllengths-0-is-not-true</span></span>
-<span>  <span class="va">txi_gene</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/pkg/tximport/man/tximport.html" class="external-link">tximport</a></span><span class="op">(</span>files <span class="op">=</span> <span class="va">isoform_list</span>,</span>
-<span>                   type<span class="op">=</span><span class="st">'rsem'</span>,</span>
-<span>                   txIn<span class="op">=</span><span class="cn">TRUE</span>,</span>
-<span>                   txOut<span class="op">=</span><span class="cn">FALSE</span>,</span>
-<span>                   tx2gene <span class="op">=</span> <span class="va">tx2gene</span>,</span>
-<span>                   importer <span class="op">=</span> <span class="va">vroom</span><span class="op">)</span></span>
-<span><span class="op">}</span></span>
-<span></span>
-<span></span>
-<span><span class="kw">if</span><span class="op">(</span><span class="va">WRITE</span><span class="op">)</span><span class="op">{</span></span>
-<span>  <span class="fu"><a href="https://readr.tidyverse.org/reference/read_rds.html" class="external-link">write_rds</a></span><span class="op">(</span><span class="va">txi</span>, <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="fu"><a href="https://here.r-lib.org//reference/here.html" class="external-link">here</a></span><span class="op">(</span><span class="st">'data'</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="va">NEW_TXI_NAME</span>, <span class="st">".rds"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="op">}</span></span></code></pre></div>
+<p>See the script <a href="../R/import_quantification_data.R">R/import_quantification_data.R</a>,
+which includes an example of using the package rslurm to easily run the
+data aggregation on a cluster with SLURM.</p>
 </div>
-<div class="section level2">
-<h2 id="creating-a-dds-object">Creating a DDS object<a class="anchor" aria-label="anchor" href="#creating-a-dds-object"></a>
-</h2>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<div class="section level3">
+<h3 id="combining-txi-objects">combining txi objects<a class="anchor" aria-label="anchor" href="#combining-txi-objects"></a>
+</h3>
+<p>Combining txi objects (eg, to aggregate a batch when it comes in and
+combine it with the larger set), see <a href="../R/combine_txi_objects.R">R/combine_txi_objects.R</a></p>
+</div>
+<div class="section level3">
+<h3 id="creating-a-dds-object">Creating a DDS object<a class="anchor" aria-label="anchor" href="#creating-a-dds-object"></a>
+</h3>
+<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://tidyverse.tidyverse.org" class="external-link">tidyverse</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/mikelove/DESeq2" class="external-link">DESeq2</a></span><span class="op">)</span></span>
@@ -226,7 +193,7 @@ samples.</p>
 <span><span class="op">}</span></span>
 <span></span>
 <span><span class="va">meta_df</span> <span class="op">=</span> <span class="fu"><a href="https://readr.tidyverse.org/reference/read_delim.html" class="external-link">read_csv</a></span><span class="op">(</span><span class="fu"><a href="https://here.r-lib.org//reference/here.html" class="external-link">here</a></span><span class="op">(</span><span class="st">"llfs_rnaseq_data/rnaseq_metadata_20230713.csv"</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
-<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>count_headers <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">'sample_'</span>, <span class="va">sample_id</span><span class="op">)</span>,</span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>count_headers <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">'sample_'</span>, <span class="va">library_id</span><span class="op">)</span>,</span>
 <span>         sex <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">as.character</a></span><span class="op">(</span><span class="va">sex</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
 <span>  <span class="fu"><a href="https://tidyr.tidyverse.org/reference/replace_na.html" class="external-link">replace_na</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>sex<span class="op">=</span><span class="st">'control'</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>batch_alias <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html" class="external-link">factor</a></span><span class="op">(</span><span class="va">batch_alias</span><span class="op">)</span>,</span>
@@ -283,16 +250,16 @@ samples.</p>
 <span>  <span class="fu"><a href="https://readr.tidyverse.org/reference/read_rds.html" class="external-link">write_rds</a></span><span class="op">(</span><span class="va">dds</span>, <span class="va">DDS_OUTPUT</span><span class="op">)</span></span>
 <span><span class="op">}</span></span></code></pre></div>
 </div>
-<div class="section level2">
-<h2 id="misc">Misc<a class="anchor" aria-label="anchor" href="#misc"></a>
-</h2>
 <div class="section level3">
-<h3 id="create-tx2gene">Create tx2gene<a class="anchor" aria-label="anchor" href="#create-tx2gene"></a>
+<h3 id="misc">Misc<a class="anchor" aria-label="anchor" href="#misc"></a>
 </h3>
+<div class="section level4">
+<h4 id="create-tx2gene">Create tx2gene<a class="anchor" aria-label="anchor" href="#create-tx2gene"></a>
+</h4>
 <p>The transcript to gene file is just as it sounds – a map from
 transcript identifiers to gene identifiers. This is used by
 tximport.</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://tidyverse.tidyverse.org" class="external-link">tidyverse</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># this is v38 from gencode</span></span>
@@ -347,6 +314,7 @@ tximport.</p>
 <span><span class="co"># write_rds(gtf_parsed, "llfs_rnaseq_data/gencode38_gtf_parsed_as_df_20210919.csv")</span></span>
 <span><span class="co"># </span></span>
 <span><span class="co"># write_csv(tx2gene, "llfs_rnaseq_data/gencode38_tx2gene_20210919.csv")</span></span></code></pre></div>
+</div>
 </div>
 </div>
   </div>

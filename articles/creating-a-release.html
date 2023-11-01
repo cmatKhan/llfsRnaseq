@@ -152,14 +152,14 @@ information added back to the <code>dds</code> object.</p>
 <span><span class="co"># set environmental variables</span></span>
 <span><span class="co">## set to false to use gene level quantification, true to use</span></span>
 <span><span class="co">## tx level quantification</span></span>
-<span><span class="va">TX_QUANTS</span> <span class="op">=</span> <span class="cn">TRUE</span> </span>
+<span><span class="va">TX_QUANTS</span> <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="co">## determines whether data is written to the project data directory</span></span>
-<span><span class="va">WRITE</span> <span class="op">=</span> <span class="cn">TRUE</span> </span>
+<span><span class="va">WRITE</span> <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span></span>
 <span><span class="co"># read in data ----------------------------------------------------------------</span></span>
 <span><span class="va">dds_list</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
-<span>  gene <span class="op">=</span> <span class="fu"><a href="https://here.r-lib.org//reference/here.html" class="external-link">here</a></span><span class="op">(</span><span class="fu"><a href="https://here.r-lib.org//reference/here.html" class="external-link">here</a></span><span class="op">(</span><span class="st">"llfs_rnaseq_data/dds_20230717_gene.rds"</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>  tx   <span class="op">=</span> <span class="fu"><a href="https://here.r-lib.org//reference/here.html" class="external-link">here</a></span><span class="op">(</span><span class="fu"><a href="https://here.r-lib.org//reference/here.html" class="external-link">here</a></span><span class="op">(</span><span class="st">"llfs_rnaseq_data/dds_20230717_tx.rds"</span><span class="op">)</span><span class="op">)</span></span>
+<span>  gene <span class="op">=</span> <span class="fu"><a href="https://here.r-lib.org//reference/here.html" class="external-link">here</a></span><span class="op">(</span><span class="st">"llfs_rnaseq_data/dds_gene_20231023.rds"</span><span class="op">)</span>,</span>
+<span>  tx   <span class="op">=</span> <span class="fu"><a href="https://here.r-lib.org//reference/here.html" class="external-link">here</a></span><span class="op">(</span><span class="st">"llfs_rnaseq_data/dds_tx_20231023.rds"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># note, clear out any design -- it isn't necessary for the manipulations below.</span></span>
@@ -168,118 +168,196 @@ information added back to the <code>dds</code> object.</p>
 <span><span class="kw">if</span><span class="op">(</span><span class="va">TX_QUANTS</span><span class="op">)</span><span class="op">{</span></span>
 <span>  <span class="va">dds_full</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">readRDS</a></span><span class="op">(</span><span class="va">dds_list</span><span class="op">$</span><span class="va">tx</span><span class="op">)</span></span>
 <span>  <span class="fu">design</span><span class="op">(</span><span class="va">dds_full</span><span class="op">)</span> <span class="op">=</span> <span class="op">~</span><span class="fl">1</span></span>
+<span>  <span class="va">dds_full</span><span class="op">$</span><span class="va">count_headers</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">'library_'</span>,<span class="va">dds_full</span><span class="op">$</span><span class="va">library_id</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">colnames</a></span><span class="op">(</span><span class="va">dds_full</span><span class="op">)</span> <span class="op">=</span> <span class="va">dds_full</span><span class="op">$</span><span class="va">count_headers</span></span>
 <span><span class="op">}</span> <span class="kw">else</span> <span class="op">{</span></span>
 <span>  <span class="va">dds_full</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">readRDS</a></span><span class="op">(</span><span class="va">dds_list</span><span class="op">$</span><span class="va">gene</span><span class="op">)</span></span>
 <span>  <span class="fu">design</span><span class="op">(</span><span class="va">dds_full</span><span class="op">)</span> <span class="op">=</span> <span class="op">~</span><span class="fl">1</span></span>
+<span>  <span class="va">dds_full</span><span class="op">$</span><span class="va">count_headers</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">'library_'</span>,<span class="va">dds_full</span><span class="op">$</span><span class="va">library_id</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">colnames</a></span><span class="op">(</span><span class="va">dds_full</span><span class="op">)</span> <span class="op">=</span> <span class="va">dds_full</span><span class="op">$</span><span class="va">count_headers</span></span>
 <span><span class="op">}</span></span></code></pre></div>
-</div>
-<div class="section level3">
-<h3 id="some-sanity-checks">Some sanity checks<a class="anchor" aria-label="anchor" href="#some-sanity-checks"></a>
-</h3>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># some checks on the metadata -------------------------------------------------</span></span>
-<span><span class="co">## ensure that there are no mislabel TRUE that have been relabelled already</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">ncol</a></span><span class="op">(</span><span class="va">dds_full</span><span class="op">[</span>,<span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">dds_full</span><span class="op">$</span><span class="va">relabel_reason</span><span class="op">)</span> <span class="op">&amp;</span> </span>
-<span>                          <span class="va">dds_full</span><span class="op">$</span><span class="va">mislabel</span><span class="op">]</span><span class="op">)</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span></span>
-<span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/unique.html" class="external-link">unique</a></span><span class="op">(</span><span class="va">dds_full</span><span class="op">$</span><span class="va">legal</span><span class="op">)</span> <span class="op">==</span> <span class="st">'yes'</span><span class="op">)</span></span></code></pre></div>
-</div>
-<div class="section level3">
-<h3 id="rename-the-count-columns">Rename the count columns<a class="anchor" aria-label="anchor" href="#rename-the-count-columns"></a>
-</h3>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">colnames</a></span><span class="op">(</span><span class="va">dds_full</span><span class="op">)</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="st">"subject"</span>, </span>
-<span>                            <span class="va">dds_full</span><span class="op">$</span><span class="va">subject</span>, </span>
-<span>                            <span class="st">"visit"</span>, </span>
-<span>                            <span class="va">dds_full</span><span class="op">$</span><span class="va">visit</span>,</span>
-<span>                            sep<span class="op">=</span><span class="st">"_"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="next-split-the-dds-object-into-control-and-experiment-sets">Next, split the dds object into <code>control</code> and
 <code>experiment</code> sets<a class="anchor" aria-label="anchor" href="#next-split-the-dds-object-into-control-and-experiment-sets"></a>
 </h3>
-<p>These are as they sound – the ‘pool’ and ‘phantom’ control samples
-are separated from the experimental samples. The control set is not
-exported from the <code>dds</code> object.</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># split into control and experimental sets ------------------------------------</span></span>
-<span><span class="va">dds_control</span> <span class="op">=</span> <span class="va">dds_full</span><span class="op">[</span>,<span class="va">dds_full</span><span class="op">$</span><span class="va">purpose</span> <span class="op">==</span> <span class="st">'control'</span><span class="op">]</span></span>
-<span><span class="va">dds_experiment</span> <span class="op">=</span> <span class="va">dds_full</span><span class="op">[</span>,<span class="va">dds_full</span><span class="op">$</span><span class="va">purpose</span> <span class="op">==</span> <span class="st">'experiment'</span><span class="op">]</span></span>
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># ensure that all samples are ones for which there is legal permission</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/unique.html" class="external-link">unique</a></span><span class="op">(</span><span class="va">dds_full</span><span class="op">$</span><span class="va">legal</span><span class="op">)</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># remove the full object and garbage collect -- this is important with the `tx` </span></span>
-<span><span class="co"># data because it is so large</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/rm.html" class="external-link">rm</a></span><span class="op">(</span><span class="va">dds_full</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/gc.html" class="external-link">gc</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+<span><span class="co"># split into control and experimental sets ------------------------------------</span></span>
+<span><span class="va">dds_control</span> <span class="op">=</span> <span class="va">dds_full</span><span class="op">[</span>,<span class="fu"><a href="https://stringr.tidyverse.org/reference/str_detect.html" class="external-link">str_detect</a></span><span class="op">(</span><span class="va">dds_full</span><span class="op">$</span><span class="va">purpose</span>,<span class="st">'control'</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="va">dds_experiment</span> <span class="op">=</span> <span class="va">dds_full</span><span class="op">[</span>,<span class="va">dds_full</span><span class="op">$</span><span class="va">purpose</span> <span class="op">==</span> <span class="st">'experiment'</span><span class="op">]</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="create-a-sample-wise-filter">Create a sample-wise filter<a class="anchor" aria-label="anchor" href="#create-a-sample-wise-filter"></a>
+</h3>
+<p>First, we remove samples with more than 0.08 intergenic reads. We
+also remove samples which are confidently mislabeled, but do not have an
+alternate match.</p>
+<p>Next, we design the following criteria to choose a single sample,
+where there are replicates. ‘Meaningful reads’ is here defined as the
+<code>protein_coding_total</code> minus the
+<code>rn7sl_total</code>.</p>
+<p>Our preference is for samples with the least percent intergenic
+reads. If the library with the least intergenic reads is less than 1e6
+smaller than the library with the most meaningful reads, OR the library
+with the least intergenic reads is at least in the 20th percentile of
+the overall empirical cumulative distribution of meaningful reads, then
+choose the library with the least intergenic reads. Else, we choose the
+library with the most meaningful reads.</p>
+<p>We perform two checks to ensure that this filtering is correct.
+First, we confirm that the number of unique ‘subject/visit’s is the same
+in the original set and the subsequently filtered set. Second, we
+confirm that there is no more than 1 sample in each ’subject/visit’
+group.</p>
+<p>Below, we provide a minimal example</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://tidyverse.tidyverse.org" class="external-link">tidyverse</a></span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Create an example dataframe</span></span>
+<span><span class="va">df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>    library_id <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">10</span><span class="op">)</span>,</span>
+<span>    subject <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">'A'</span>, <span class="st">'A'</span>, <span class="st">'A'</span>, </span>
+<span>                <span class="st">'A'</span>, </span>
+<span>                <span class="st">'B'</span>, <span class="st">'B'</span>,</span>
+<span>                <span class="st">'B'</span>, </span>
+<span>                <span class="st">'C'</span>, <span class="st">'C'</span>, </span>
+<span>                <span class="st">'D'</span><span class="op">)</span>,</span>
+<span>    visit <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">1</span>, </span>
+<span>              <span class="fl">2</span>, </span>
+<span>              <span class="fl">1</span>, <span class="fl">1</span>, </span>
+<span>              <span class="fl">2</span>, </span>
+<span>              <span class="fl">1</span>, <span class="fl">1</span>, </span>
+<span>              <span class="fl">1</span><span class="op">)</span>,</span>
+<span>    percent_intergenic <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.1</span>, <span class="fl">0.15</span>, <span class="fl">0.2</span>, </span>
+<span>                           <span class="fl">0.2</span>, </span>
+<span>                           <span class="fl">0.3</span>, <span class="fl">0.1</span>, </span>
+<span>                           <span class="fl">0.5</span>, </span>
+<span>                           <span class="fl">0.4</span>, <span class="fl">0.2</span>, </span>
+<span>                           <span class="fl">0.15</span><span class="op">)</span>,</span>
+<span>    protein_coding_total <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1e6</span>, <span class="fl">9e6</span>, <span class="fl">7e6</span>, </span>
+<span>                             <span class="fl">7e6</span>, </span>
+<span>                             <span class="fl">8e6</span>, <span class="fl">8e6</span>, </span>
+<span>                             <span class="fl">9e6</span>, </span>
+<span>                             <span class="fl">6e6</span>, <span class="fl">6e6</span>, </span>
+<span>                             <span class="fl">7e6</span><span class="op">)</span>,</span>
+<span>    rn7sl_total <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1e3</span>, <span class="fl">9e4</span>, <span class="fl">7e4</span>, </span>
+<span>                    <span class="fl">7e2</span>, </span>
+<span>                    <span class="fl">8e1</span>, <span class="fl">8e2</span>, </span>
+<span>                    <span class="fl">9e1</span>, </span>
+<span>                    <span class="fl">6e2</span>, <span class="fl">6e3</span>, </span>
+<span>                    <span class="fl">7e4</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">passing_ids</span> <span class="op">=</span> <span class="va">df</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="co"># add a column which stores the protein_coding_total quantile of a given</span></span>
+<span>  <span class="co"># library, calculated against the empirical cumulative distribution of</span></span>
+<span>  <span class="co"># protein_coding_total in the set</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>protein_coding_tmp <span class="op">=</span> <span class="va">protein_coding_total</span><span class="op">-</span><span class="va">rn7sl_total</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>protein_coding_tmp_quantile <span class="op">=</span></span>
+<span>           <span class="fu"><a href="https://rdrr.io/r/stats/ecdf.html" class="external-link">ecdf</a></span><span class="op">(</span><span class="va">.</span><span class="op">$</span><span class="va">protein_coding_tmp</span><span class="op">)</span><span class="op">(</span><span class="va">protein_coding_tmp</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/group_by.html" class="external-link">group_by</a></span><span class="op">(</span><span class="va">subject</span>, <span class="va">visit</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="co"># Sort, within group, by percent_intergenic</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/arrange.html" class="external-link">arrange</a></span><span class="op">(</span><span class="va">percent_intergenic</span>, .by_group <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>protein_coding_tmp_max_diff <span class="op">=</span> </span>
+<span>             <span class="va">protein_coding_tmp</span><span class="op">[</span><span class="va">percent_intergenic</span><span class="op">==</span><span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/nth.html" class="external-link">first</a></span><span class="op">(</span><span class="va">percent_intergenic</span><span class="op">)</span><span class="op">]</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span> <span class="op">-</span> </span>
+<span>             <span class="va">protein_coding_tmp</span><span class="op">[</span><span class="va">protein_coding_tmp</span><span class="op">==</span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">protein_coding_tmp</span><span class="op">)</span><span class="op">]</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span></span>
+<span>      select_flag <span class="op">=</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/if_else.html" class="external-link">if_else</a></span><span class="op">(</span></span>
+<span>          <span class="va">protein_coding_tmp_max_diff</span> <span class="op">&gt;</span> <span class="op">-</span><span class="fl">1e6</span> <span class="op">|</span> </span>
+<span>              <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/nth.html" class="external-link">first</a></span><span class="op">(</span><span class="va">protein_coding_tmp_quantile</span><span class="op">)</span> <span class="op">&gt;=</span> <span class="fl">0.2</span>,</span>
+<span>          <span class="va">percent_intergenic</span> <span class="op">==</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="va">percent_intergenic</span><span class="op">)</span>,</span>
+<span>          <span class="va">protein_coding_tmp</span> <span class="op">==</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">protein_coding_tmp</span><span class="op">)</span></span>
+<span>      <span class="op">)</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">select_flag</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/pull.html" class="external-link">pull</a></span><span class="op">(</span><span class="va">library_id</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># two checks:</span></span>
+<span><span class="co">#   1. that the number of unique samples is the same before and after</span></span>
+<span><span class="co">#   2. that no one group of subject/visit has size &gt; 1</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">passing_ids</span><span class="op">)</span> <span class="op">==</span> </span>
+<span>            <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/distinct.html" class="external-link">distinct</a></span><span class="op">(</span><span class="va">df</span>, <span class="va">subject</span>, <span class="va">visit</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="va">df</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>            <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">library_id</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">passing_ids</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>            <span class="fu"><a href="https://dplyr.tidyverse.org/reference/group_by.html" class="external-link">group_by</a></span><span class="op">(</span><span class="va">subject</span>,<span class="va">visit</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>            <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/context.html" class="external-link">n</a></span><span class="op">(</span><span class="op">)</span><span class="op">&gt;</span><span class="fl">1</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>            <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="op">)</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span></span></code></pre></div>
+<p>And this is how we filter the experiment data</p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">analysis_library_ids</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/pkg/SummarizedExperiment/man/SummarizedExperiment-class.html" class="external-link">colData</a></span><span class="op">(</span><span class="va">dds_experiment</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://tibble.tidyverse.org/reference/as_tibble.html" class="external-link">as_tibble</a></span><span class="op">(</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="co"># in the experiment set, a sample should either be mislabeled and relabeled</span></span>
+<span>  <span class="co"># or not mislabeled and not relabeled</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="op">!</span><span class="va">suspicious_sex</span>,<span class="va">relabel</span><span class="op">==</span><span class="va">mislabel</span>, <span class="va">percent_intergenic</span> <span class="op">&lt;</span> <span class="fl">0.08</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>protein_coding_minus_rn7sl <span class="op">=</span> <span class="va">protein_coding_total</span> <span class="op">-</span> <span class="va">rn7sl_total</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>protein_coding_minus_rn7sl_quantile <span class="op">=</span> </span>
+<span>             <span class="fu"><a href="https://rdrr.io/r/stats/ecdf.html" class="external-link">ecdf</a></span><span class="op">(</span><span class="va">.</span><span class="op">$</span><span class="va">protein_coding_minus_rn7sl</span><span class="op">)</span><span class="op">(</span><span class="va">protein_coding_minus_rn7sl</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> </span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/group_by.html" class="external-link">group_by</a></span><span class="op">(</span><span class="va">subject</span>, <span class="va">visit</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/arrange.html" class="external-link">arrange</a></span><span class="op">(</span><span class="va">percent_intergenic</span>, .by_group <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> </span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>protein_coding_minus_rn7sl_max_diff <span class="op">=</span> </span>
+<span>             <span class="va">protein_coding_minus_rn7sl</span><span class="op">[</span><span class="va">percent_intergenic</span><span class="op">==</span><span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/nth.html" class="external-link">first</a></span><span class="op">(</span><span class="va">percent_intergenic</span><span class="op">)</span><span class="op">]</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span> <span class="op">-</span> </span>
+<span>             <span class="va">protein_coding_minus_rn7sl</span><span class="op">[</span><span class="va">protein_coding_minus_rn7sl</span><span class="op">==</span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">protein_coding_minus_rn7sl</span><span class="op">)</span><span class="op">]</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span></span>
+<span>      select_flag <span class="op">=</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/if_else.html" class="external-link">if_else</a></span><span class="op">(</span></span>
+<span>          <span class="va">protein_coding_minus_rn7sl_max_diff</span> <span class="op">&gt;</span> <span class="op">-</span><span class="fl">1e6</span> <span class="op">|</span> </span>
+<span>              <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/nth.html" class="external-link">first</a></span><span class="op">(</span><span class="va">protein_coding_minus_rn7sl_quantile</span><span class="op">)</span> <span class="op">&gt;=</span> <span class="fl">0.2</span>,</span>
+<span>          <span class="va">percent_intergenic</span> <span class="op">==</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="va">percent_intergenic</span><span class="op">)</span>,</span>
+<span>          <span class="va">protein_coding_minus_rn7sl</span> <span class="op">==</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">protein_coding_minus_rn7sl</span><span class="op">)</span></span>
+<span>      <span class="op">)</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">select_flag</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/pull.html" class="external-link">pull</a></span><span class="op">(</span><span class="va">library_id</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">analysis_library_ids</span><span class="op">)</span> <span class="op">==</span> </span>
+<span>            <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/distinct.html" class="external-link">distinct</a></span><span class="op">(</span><span class="fu"><a href="https://tibble.tidyverse.org/reference/as_tibble.html" class="external-link">as_tibble</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/pkg/SummarizedExperiment/man/SummarizedExperiment-class.html" class="external-link">colData</a></span><span class="op">(</span><span class="va">dds_experiment</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>                            <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="op">!</span><span class="va">suspicious_sex</span>,</span>
+<span>                                   <span class="va">relabel</span><span class="op">==</span><span class="va">mislabel</span>,</span>
+<span>                                   <span class="va">percent_intergenic</span> <span class="op">&lt;</span> <span class="fl">0.08</span><span class="op">)</span>,</span>
+<span>                          <span class="va">subject</span>, <span class="va">visit</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/pkg/SummarizedExperiment/man/SummarizedExperiment-class.html" class="external-link">colData</a></span><span class="op">(</span><span class="va">dds_experiment</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>            <span class="fu"><a href="https://tibble.tidyverse.org/reference/as_tibble.html" class="external-link">as_tibble</a></span><span class="op">(</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>            <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">library_id</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">analysis_library_ids</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>            <span class="fu"><a href="https://dplyr.tidyverse.org/reference/group_by.html" class="external-link">group_by</a></span><span class="op">(</span><span class="va">subject</span>,<span class="va">visit</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>            <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/context.html" class="external-link">n</a></span><span class="op">(</span><span class="op">)</span><span class="op">&gt;</span><span class="fl">1</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>            <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="op">)</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="create-a-gene-wise-expression-filter">Create a gene-wise (expression) filter<a class="anchor" aria-label="anchor" href="#create-a-gene-wise-expression-filter"></a>
 </h3>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># calculate what 15% of samples is for a given release</span></span>
-<span><span class="va">num_samples</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">floor</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">ncol</a></span><span class="op">(</span><span class="va">dds_experiment</span><span class="op">)</span><span class="op">*</span><span class="fl">.015</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="co">## Expression Filter</span></span>
+<span></span>
+<span><span class="co"># at the time of writing, num_samples comes out to 57</span></span>
+<span><span class="va">num_samples</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">floor</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">ncol</a></span><span class="op">(</span><span class="va">dds_experiment</span><span class="op">[</span>,<span class="va">dds_experiment</span><span class="op">$</span><span class="va">library_id</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span></span>
+<span>                                          <span class="va">analysis_library_ids</span><span class="op">]</span><span class="op">)</span><span class="op">*</span><span class="fl">.015</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># filter out low expression genes</span></span>
-<span><span class="va">mid_expression_filter</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/colSums.html" class="external-link">rowSums</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/pkg/edgeR/man/cpm.html" class="external-link">cpm</a></span><span class="op">(</span><span class="fu">counts</span><span class="op">(</span><span class="va">dds_experiment</span><span class="op">)</span><span class="op">)</span>  <span class="op">&gt;</span> <span class="fl">3</span><span class="op">)</span> <span class="op">&gt;=</span> <span class="va">num_samples</span></span></code></pre></div>
-</div>
-<div class="section level3">
-<h3 id="create-a-sample-wise-filter">Create a sample-wise filter<a class="anchor" aria-label="anchor" href="#create-a-sample-wise-filter"></a>
-</h3>
-<p>We wish to filter out both (subject, visit) duplicates – this can
-arise due to either on-purpose re-dos of “bad” samples, or due to
-accidental mislabels which create duplicate samples – and those samples
-which fail QC.</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span></span>
-<span><span class="co">## Deduplicate</span></span>
-<span><span class="co">## duplications can occur due to sample re-dos, or due to relabelling</span></span>
-<span><span class="co">## mislabelled samples</span></span>
-<span><span class="va">dedup_ids</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/pkg/SummarizedExperiment/man/SummarizedExperiment-class.html" class="external-link">colData</a></span><span class="op">(</span><span class="va">dds_experiment</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
-<span>  <span class="fu"><a href="https://tibble.tidyverse.org/reference/as_tibble.html" class="external-link">as_tibble</a></span><span class="op">(</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
-<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/group_by.html" class="external-link">group_by</a></span><span class="op">(</span><span class="va">subject</span>, <span class="va">visit</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
-<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">percent_intergenic</span> <span class="op">==</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="va">percent_intergenic</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
-<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/pull.html" class="external-link">pull</a></span><span class="op">(</span><span class="va">sample_id</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co">## Quality Filter ----</span></span>
-<span></span>
-<span><span class="co"># passing samples have less than 8% intergenic reads, do not express</span></span>
-<span><span class="co"># the wrong sex chromosome according to their sample label, and are not</span></span>
-<span><span class="co"># identified as mislabels from the RNA variant vs WGS DNA variant comparison.</span></span>
-<span><span class="co"># Note that a sample labelled "mislabelled" is one whose variants clearly </span></span>
-<span><span class="co"># mismatched the WGS sample of the same subject identifier, but for which </span></span>
-<span><span class="co"># there was no obvious match also found in the WGS subject set</span></span>
-<span><span class="va">qc_ids</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/pkg/SummarizedExperiment/man/SummarizedExperiment-class.html" class="external-link">colData</a></span><span class="op">(</span><span class="va">dds_experiment</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
-<span>  <span class="fu"><a href="https://tibble.tidyverse.org/reference/as_tibble.html" class="external-link">as_tibble</a></span><span class="op">(</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
-<span>  <span class="co"># note the negation at the beginning of the conditional -- I find it easier</span></span>
-<span>  <span class="co"># to think about samples which are failing rather than the other way around</span></span>
-<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="op">!</span><span class="va">mislabelled</span>, <span class="op">!</span><span class="va">suspicious_sex</span>, <span class="va">percent_intergenic</span> <span class="op">&lt;</span> <span class="fl">0.08</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
-<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/pull.html" class="external-link">pull</a></span><span class="op">(</span><span class="va">sample_id</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">analysis_sample_ids</span> <span class="op">=</span> <span class="fu"><a href="https://generics.r-lib.org/reference/setops.html" class="external-link">intersect</a></span><span class="op">(</span><span class="va">dedup_ids</span>, <span class="va">qc_ids</span><span class="op">)</span></span></code></pre></div>
+<span><span class="va">mid_expression_filter</span> <span class="op">&lt;-</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/colSums.html" class="external-link">rowSums</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/pkg/edgeR/man/cpm.html" class="external-link">cpm</a></span><span class="op">(</span><span class="fu">counts</span><span class="op">(</span></span>
+<span>    <span class="va">dds_experiment</span><span class="op">[</span>,<span class="va">dds_experiment</span><span class="op">$</span><span class="va">library_id</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span></span>
+<span>                     <span class="va">analysis_library_ids</span><span class="op">]</span><span class="op">)</span><span class="op">)</span>  <span class="op">&gt;</span> <span class="fl">3</span><span class="op">)</span> <span class="op">&gt;=</span> <span class="va">num_samples</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="apply-the-filters-and-export-plain-text-data">Apply the filters and export plain text data<a class="anchor" aria-label="anchor" href="#apply-the-filters-and-export-plain-text-data"></a>
 </h3>
-<p>Note that on my 30GB laptop, the tx data barely works – max RAM goes
-up to ~28GB. Use a HPC or cloud service if you can. the
-<code><a href="https://rdrr.io/r/base/gc.html" class="external-link">gc()</a></code> (garbage collector) helps a bit to return some RAM to
-you when possible.</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co">## Apply Filters ----</span></span>
 <span></span>
 <span><span class="co"># filter the deseq data object on the rows (genes) and samples (column)</span></span>
 <span><span class="va">dds_experiment_passing</span> <span class="op">=</span> </span>
 <span>  <span class="va">dds_experiment</span><span class="op">[</span><span class="va">mid_expression_filter</span>, </span>
-<span>                 <span class="va">dds_experiment</span><span class="op">$</span><span class="va">sample_id</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">analysis_sample_ids</span><span class="op">]</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/gc.html" class="external-link">gc</a></span><span class="op">(</span><span class="op">)</span></span>
+<span>                 <span class="va">dds_experiment</span><span class="op">$</span><span class="va">library_id</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">analysis_library_ids</span><span class="op">]</span></span>
+<span></span>
 <span><span class="co"># add size factors to the dds object</span></span>
 <span><span class="va">dds_experiment_passing</span> <span class="op">=</span> <span class="fu">estimateSizeFactors</span><span class="op">(</span><span class="va">dds_experiment_passing</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/gc.html" class="external-link">gc</a></span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
 <span><span class="co"># extract data from dds object ------------------------------------------------</span></span>
 <span></span>
-<span><span class="co"># note "unfltr" is still deduplicated</span></span>
 <span><span class="va">output_list</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
-<span>  raw_unfltr_counts <span class="op">=</span> <span class="fu"><a href="https://tibble.tidyverse.org/reference/as_tibble.html" class="external-link">as_tibble</a></span><span class="op">(</span><span class="fu">counts</span><span class="op">(</span><span class="va">dds_experiment</span><span class="op">[</span>,<span class="va">dds_experiment</span><span class="op">$</span><span class="va">sample_id</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">dedup_ids</span><span class="op">]</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>  unfltr_feature_id <span class="op">=</span> <span class="fu"><a href="https://tibble.tidyverse.org/reference/tibble.html" class="external-link">tibble</a></span><span class="op">(</span>gene_id <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">rownames</a></span><span class="op">(</span><span class="va">dds_experiment</span><span class="op">[</span>,<span class="va">dds_experiment</span><span class="op">$</span><span class="va">sample_id</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">dedup_ids</span><span class="op">]</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  raw_unfltr_counts <span class="op">=</span> <span class="fu"><a href="https://tibble.tidyverse.org/reference/as_tibble.html" class="external-link">as_tibble</a></span><span class="op">(</span><span class="fu">counts</span><span class="op">(</span><span class="va">dds_full</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  unfltr_feature_id <span class="op">=</span> <span class="fu"><a href="https://tibble.tidyverse.org/reference/tibble.html" class="external-link">tibble</a></span><span class="op">(</span>gene_id <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">rownames</a></span><span class="op">(</span><span class="va">dds_full</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>  raw_fltr_counts <span class="op">=</span> <span class="fu"><a href="https://tibble.tidyverse.org/reference/as_tibble.html" class="external-link">as_tibble</a></span><span class="op">(</span><span class="fu">counts</span><span class="op">(</span><span class="va">dds_experiment_passing</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>  norm_fltr_counts <span class="op">=</span> <span class="fu"><a href="https://tibble.tidyverse.org/reference/as_tibble.html" class="external-link">as_tibble</a></span><span class="op">(</span><span class="fu">counts</span><span class="op">(</span><span class="va">dds_experiment_passing</span>, normalized<span class="op">=</span><span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>  fltr_feature_id <span class="op">=</span> <span class="fu"><a href="https://tibble.tidyverse.org/reference/tibble.html" class="external-link">tibble</a></span><span class="op">(</span>gene_id <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">rownames</a></span><span class="op">(</span><span class="va">dds_experiment_passing</span><span class="op">)</span><span class="op">)</span></span>
@@ -304,7 +382,7 @@ you when possible.</p>
 <span>  <span class="co"># metadata. Pay attention to this if you do want to re-write on the same</span></span>
 <span>  <span class="co"># day</span></span>
 <span>  <span class="kw">if</span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/files.html" class="external-link">file.exists</a></span><span class="op">(</span><span class="va">sample_metadata_path</span><span class="op">)</span><span class="op">)</span><span class="op">{</span></span>
-<span>    <span class="fu"><a href="https://readr.tidyverse.org/reference/write_delim.html" class="external-link">write_csv</a></span><span class="op">(</span><span class="fu"><a href="https://tibble.tidyverse.org/reference/as_tibble.html" class="external-link">as_tibble</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/pkg/SummarizedExperiment/man/SummarizedExperiment-class.html" class="external-link">colData</a></span><span class="op">(</span><span class="va">dds_experiment</span><span class="op">)</span><span class="op">)</span>, <span class="va">sample_metadata_path</span><span class="op">)</span></span>
+<span>    <span class="fu"><a href="https://readr.tidyverse.org/reference/write_delim.html" class="external-link">write_csv</a></span><span class="op">(</span><span class="fu"><a href="https://tibble.tidyverse.org/reference/as_tibble.html" class="external-link">as_tibble</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/pkg/SummarizedExperiment/man/SummarizedExperiment-class.html" class="external-link">colData</a></span><span class="op">(</span><span class="va">dds_full</span><span class="op">)</span><span class="op">)</span>, <span class="va">sample_metadata_path</span><span class="op">)</span></span>
 <span>  <span class="op">}</span></span>
 <span></span>
 <span>  <span class="fu"><a href="https://purrr.tidyverse.org/reference/map.html" class="external-link">map</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">output_list</span><span class="op">)</span>,</span>

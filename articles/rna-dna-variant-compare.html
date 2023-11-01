@@ -134,9 +134,10 @@
 <div class="section level2">
 <h2 id="introduction">Introduction<a class="anchor" aria-label="anchor" href="#introduction"></a>
 </h2>
-<p>The goal of this exercise is to call variants on the RNAseq samples.
-These are the papers/resources I used to get an idea of what the state
-of the art of calling variants from bulk RNAseq:</p>
+<p>The goal is to call variants on the RNAseq librarys such that these
+variant loci can be used to match RNA librarys to WGS librarys. These
+are the papers/resources I used to get an idea of what the state of the
+art of calling variants from bulk RNAseq:</p>
 <ol style="list-style-type: decimal">
 <li><a href="https://gatk.broadinstitute.org/hc/en-us/articles/360035531192-RNAseq-short-variant-discovery-SNPs-Indels-" class="external-link">GATK
 Calling Variants from Bulk RNAseq</a></li>
@@ -173,15 +174,6 @@ data</a></li>
 <li><a href="https://pubmed.ncbi.nlm.nih.gov/31834882/" class="external-link">Leveraging
 allelic imbalance to refine fine-mapping for eQTL studies</a></li>
 </ol>
-<p>Initially, the goal of the variant calling on the LLFS data is to
-find and correct sample mislabels. The resources above, and my own trial
-and error experimentation, show that it is indeed entirely reasonable to
-call variants from the RNAseq samples and, where the same (labelled)
-subject has WGS data, compare the RNA vs DNA variants. It turns out that
-doing this on only one chromosome – any autosome will do, and I
-frequently use chr21 – returns more than enough variant sites such that
-there is no loss of specificity compared to comparing variants across
-the entire genome.</p>
 </div>
 <div class="section level2">
 <h2 id="procedure">Procedure<a class="anchor" aria-label="anchor" href="#procedure"></a>
@@ -194,13 +186,39 @@ to use the bams output by the RNAseq pipeline as opposed to starting
 from the alignment step. I process these in batches of no more than 30 –
 due to the way nextflow handles tracking intermediate data, and the
 number of times the bam files have to be manipulated, and therefore
-copied, the size of the <code>work</code> directory gets very large,
-upwards of 10 terabytes.</p>
+copied, the size of the <code>work</code> directory gets very large with
+smaller numbers of librarys.</p>
 <ol style="list-style-type: decimal">
-<li><p>Create an input samplesheet. An example of the <code>bam</code>
-input samplesheet can be found <a href="https://github.com/cmatKhan/llfsRnaseq/blob/main/inst/20230519.csv">here</a></p></li>
-<li>
-<p>Run the pipeline.</p>
+<li>Create an input librarysheet. An example of the <code>bam</code>
+input librarysheet can be found <a href="https://github.com/cmatKhan/llfsRnaseq/blob/main/inst/20230519.csv">here</a>.
+The rna variant calling work directory is large because the bams are
+copied multiple times as they are prepared for variant calling. I submit
+in sets of more more than 30, which ends up producing ~3 TB of
+intermediate data. Here is an example of creating librarysheets:</li>
+</ol>
+<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://tidyverse.tidyverse.org" class="external-link">tidyverse</a></span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">set</span> <span class="op">=</span> <span class="st">'20230727'</span></span>
+<span></span>
+<span><span class="va">bam_list</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.files.html" class="external-link">list.files</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">'/mnt/scratch/llfs_variant_calling/data/'</span>, <span class="va">set</span><span class="op">)</span>, <span class="st">'*bam$'</span>, </span>
+<span>                      full.names <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="va">df</span> <span class="op">=</span> <span class="fu"><a href="https://tibble.tidyverse.org/reference/tibble.html" class="external-link">tibble</a></span><span class="op">(</span></span>
+<span>  library <span class="op">=</span> <span class="fu"><a href="https://stringr.tidyverse.org/reference/str_remove.html" class="external-link">str_remove</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/basename.html" class="external-link">basename</a></span><span class="op">(</span><span class="va">bam_list</span><span class="op">)</span>, <span class="st">'.markdup.sorted.bam'</span><span class="op">)</span>,</span>
+<span>  fastq_1 <span class="op">=</span> <span class="st">""</span>,</span>
+<span>  fastq_2 <span class="op">=</span> <span class="st">""</span>,</span>
+<span>  bam <span class="op">=</span> <span class="fu"><a href="https://stringr.tidyverse.org/reference/str_replace.html" class="external-link">str_replace</a></span><span class="op">(</span><span class="va">bam_list</span>, <span class="st">"/mnt/scratch"</span>, <span class="st">"/scratch/mblab/chasem"</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">file_path</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span></span>
+<span>  <span class="st">"/mnt/scratch/llfs_variant_calling/librarysheet/"</span>,</span>
+<span>  <span class="va">set</span>,</span>
+<span>  <span class="st">".csv"</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://readr.tidyverse.org/reference/write_delim.html" class="external-link">write_csv</a></span><span class="op">(</span><span class="va">df</span>, <span class="va">file_path</span><span class="op">)</span></span></code></pre></div>
+<ol start="2" style="list-style-type: decimal">
+<li>Run the pipeline.
 <ul>
 <li>First, <a href="">clone the repo</a> and make sure that you switch
 to the <code>bam_input</code> branch.</li>
@@ -211,31 +229,209 @@ cluster which uses SLURM). I have included <a href="https://github.com/cmatKhan/
 config file</a> for HTCF, also.</li>
 </ul>
 </li>
-<li><p>I have the pipeline to set to symlink rather than copy files from
+<li>I have the pipeline to set to symlink rather than copy files from
 <code>work</code> to <code>results</code>, so when you move the
 <code>vcf</code> and <code>tabix</code> files from <code>scratch</code>
 to whatever long term storage you’re using (brentlab HTCF users, I use
 LTOS), make sure you tell the copy program to follow the symlinks and
 grab the actual file, for instance <code>--copy-links</code> using
-<code>rsync</code> or <code>-F</code> using <code>s3cmd</code>.</p></li>
-<li><p>Unless you’re doing 30 or less samples, you’ll need to repeat
-this procedure in batches of ~30.</p></li>
-<li><p>At this point, I use<br><a href="https://github.com/cmatKhan/llfs_rnaseq_variants" class="external-link">the scripts
+<code>rsync</code> or <code>-F</code> using <code>s3cmd</code>.</li>
+<li>Unless you’re doing 30 or less librarys, you’ll need to repeat this
+procedure in batches of ~30.</li>
+</ol>
+<div class="section level3">
+<h3 id="labelled-library-same-same-comparisons">Labelled library (“same same”) comparisons<a class="anchor" aria-label="anchor" href="#labelled-library-same-same-comparisons"></a>
+</h3>
+<p>I first convert the RNA VCF files to GDS files and compare the
+variants on chr21 to the variants on chr21 on the DNA library of the
+same label. I use<br><a href="https://github.com/cmatKhan/llfs_rnaseq_variants" class="external-link">the scripts
 in this R project</a> to convert the <code>vcf</code> files to
 <code>gds</code> files, and then use the WGS dna <code>gds</code> files
-to extract and compare variants (also with scripts in that
-repo).</p></li>
-<li><p>Finally, I add the result of at least the direct comparison to
-the <code>llfs_rnaseq_database</code>. I haven’t yet made a table to
-track the summarized results of the all-by-all comparisons, where they
-are necessary for the obvious mislabels.</p></li>
+to extract and compare variants (also with scripts in that repo). The
+sbatch scripts and R scripts that I use are in the repo linked
+above.</p>
+</div>
+<div class="section level3">
+<h3 id="all-by-all-comparisons">All by all comparisons<a class="anchor" aria-label="anchor" href="#all-by-all-comparisons"></a>
+</h3>
+<p>For librarys with more than 100 high quality variant sites that can
+be compared which have a ‘match ratio’, meaning total number of matching
+sites / total variant sites in the RNA for which good data exists in the
+DNA, greater than 94%, we consider these a ‘confirmed label’. However,
+for those that do not meet this criteria, we use the following steps to
+choose librarys to compare against all 4556 WGS librarys.</p>
+<ol style="list-style-type: decimal">
+<li><p>First, split the same-labelled comparison into a set of librarys
+with less than 100 total_variants and those with more on chr21.</p></li>
+<li><p>For librarys with greater than or equal to 100 total_variants, if
+the match ratio is less than .94, those librarys are compared against
+all 4556 (minus one) other WGS librarys on chr21.</p></li>
+<li><p>For librarys with a match greater than .9, which is greater than
+the original label, then we do a chi-squared test. If the best
+match_ratio is significantly better than the same label AND if the best
+match is significantly better than the second best relabel, then we
+re-label the library</p></li>
+<li><p>For librarys with less than 100 total variant sites, these will
+be compared along chr6 to increase the number of RNA variant sites over
+which there is WGS data. Note that we may choose a different chromosome,
+likely closer to chr1, to increase the number of variant sites with good
+data if necessary. chr6 is chosen becuase it has about half the gene
+density of chr1 and generally provides at least 100 variant sites for
+all libraries with less than .08 intergenic reads.</p></li>
 </ol>
+</div>
+<div class="section level3">
+<h3 id="compiling-and-parsing-the-results">Compiling and parsing the results<a class="anchor" aria-label="anchor" href="#compiling-and-parsing-the-results"></a>
+</h3>
+<p>The first step for either the same-same comparison or the all-by-all
+comparison is to read in the data. If this is the same-same comparison,
+then this dataframe should be added to the wgs_compare table in the
+database</p>
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://tidyverse.tidyverse.org" class="external-link">tidyverse</a></span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://rsqlite.r-dbi.org" class="external-link">RSQLite</a></span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://here.r-lib.org/" class="external-link">here</a></span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">con</span> <span class="op">=</span> <span class="fu">dbConnect</span><span class="op">(</span><span class="fu">RSQLite</span><span class="fu">::</span><span class="fu"><a href="https://rsqlite.r-dbi.org/reference/SQLite.html" class="external-link">SQLite</a></span><span class="op">(</span><span class="op">)</span>,</span>
+<span>                         <span class="fu"><a href="https://here.r-lib.org//reference/here.html" class="external-link">here</a></span><span class="op">(</span><span class="st">'llfs_rnaseq_data/llfs_rnaseq_database.sqlite'</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">library_tbl</span> <span class="op">=</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/tbl.html" class="external-link">tbl</a></span><span class="op">(</span><span class="va">con</span>,<span class="st">'library'</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/compute.html" class="external-link">collect</a></span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">collected_metrics</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Sys.glob.html" class="external-link">Sys.glob</a></span><span class="op">(</span><span class="st">'/mnt/scratch/llfs_rna_dna_compare_test/all_by_all_batch_20231016/*/compiled_metrics.csv'</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># note: these could be done in such a way that they are collected by 'batch'</span></span>
+<span><span class="co"># and then the batch_id could be used to join to library</span></span>
+<span><span class="co">#names(chr6_collected_metrics) = basename(dirname(chr6_collected_metrics))</span></span>
+<span></span>
+<span><span class="va">collected_metrics</span> <span class="op">=</span> <span class="st">'/mnt/scratch/llfs_rna_dna_compare_test/makeup_librarys/compiled_metrics.csv'</span></span>
+<span></span>
+<span><span class="va">collected_metrics_df_raw</span> <span class="op">=</span> <span class="fu"><a href="https://purrr.tidyverse.org/reference/map.html" class="external-link">map</a></span><span class="op">(</span><span class="va">collected_metrics</span>,<span class="va">read_csv</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/bind_rows.html" class="external-link">bind_rows</a></span><span class="op">(</span>.id<span class="op">=</span><span class="st">'batch_id'</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>batch_id <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">as.integer</a></span><span class="op">(</span><span class="va">batch_id</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">collected_metrics_df</span> <span class="op">=</span> <span class="va">collected_metrics_df_raw</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>    <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">batch_id</span>,</span>
+<span>           <span class="va">rna_sample</span>,</span>
+<span>           <span class="va">rna_visit</span>,</span>
+<span>           <span class="va">dna_sample</span>,</span>
+<span>           <span class="va">chr</span>,</span>
+<span>           <span class="va">overlap_fltr</span>,</span>
+<span>           <span class="va">n_match_fltr</span>,</span>
+<span>           <span class="va">homo_expr_cand_fltr</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>    <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/rename.html" class="external-link">rename</a></span><span class="op">(</span>visit<span class="op">=</span><span class="va">rna_visit</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>    <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/rename.html" class="external-link">rename</a></span><span class="op">(</span>total_variants<span class="op">=</span><span class="va">overlap_fltr</span>,</span>
+<span>                  matching_variants<span class="op">=</span><span class="va">n_match_fltr</span>,</span>
+<span>                  homo_expr_cand<span class="op">=</span><span class="va">homo_expr_cand_fltr</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>    <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>match_ratio<span class="op">=</span><span class="va">matching_variants</span><span class="op">/</span><span class="va">total_variants</span>,</span>
+<span>           rna_library <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">as.character</a></span><span class="op">(</span><span class="va">rna_library</span><span class="op">)</span>,</span>
+<span>           visit <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">as.character</a></span><span class="op">(</span><span class="va">visit</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html" class="external-link">left_join</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">whatdatall_tbl</span>,<span class="va">id</span>,<span class="va">subject</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>              <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>subject<span class="op">=</span><span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">as.character</a></span><span class="op">(</span><span class="va">subject</span><span class="op">)</span><span class="op">)</span>, </span>
+<span>            by<span class="op">=</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">'rna_library'</span><span class="op">=</span><span class="st">'subject'</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>rna_library <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">id</span><span class="op">)</span>, <span class="va">id</span>, <span class="va">rna_library</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>    <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html" class="external-link">left_join</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">library_tbl</span>, <span class="va">pk</span>,<span class="va">fastq_id</span>,<span class="va">visit</span>,<span class="va">batch_id</span><span class="op">)</span>, </span>
+<span>              by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">'rna_library'</span> <span class="op">=</span> <span class="st">'fastq_id'</span>, </span>
+<span>                     <span class="st">'visit'</span>, </span>
+<span>                     <span class="st">'batch_id'</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="op">-</span><span class="va">id</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/rename.html" class="external-link">rename</a></span><span class="op">(</span>library_id<span class="op">=</span><span class="va">pk</span>,</span>
+<span>                dna_subject<span class="op">=</span><span class="va">dna_sample</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">library_id</span>,<span class="va">dna_subject</span>,<span class="va">chr</span>,<span class="va">total_variants</span>,</span>
+<span>         <span class="va">matching_variants</span>,<span class="va">homo_expr_cand</span>, <span class="va">match_ratio</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># dbApppend(con,'wgs_compare',collected_metrics)</span></span></code></pre></div>
+<p>At this point, we would filter for librarys with less than .94 match
+ratio or less than 100 total variants, removing librarys that have
+percent_intergenic greater than .08, and submit the all-by-all
+comparison. Once that is finished, the data is parsed into a dataframe
+just as above. It is then summarized like so:</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">whatdatall_tbl</span> <span class="op">=</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/tbl.html" class="external-link">tbl</a></span><span class="op">(</span><span class="va">con</span>,<span class="st">'whatdatall'</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/compute.html" class="external-link">collect</a></span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">library_tbl</span> <span class="op">=</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/tbl.html" class="external-link">tbl</a></span><span class="op">(</span><span class="va">con</span>,<span class="st">'library'</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/compute.html" class="external-link">collect</a></span><span class="op">(</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>library_id <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">as.character</a></span><span class="op">(</span><span class="va">library_id</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">all_by_all_summary</span> <span class="op">=</span> <span class="va">collected_metrics_df</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html" class="external-link">left_join</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">library_tbl</span>,<span class="va">library_id</span>,<span class="va">fastq_id</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html" class="external-link">left_join</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">whatdatall_tbl</span>,<span class="va">id</span>,<span class="va">subject</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>              <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>id <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">as.character</a></span><span class="op">(</span><span class="va">id</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>            by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">'fastq_id'</span><span class="op">=</span><span class="st">'id'</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/rename.html" class="external-link">rename</a></span><span class="op">(</span>rna_subject<span class="op">=</span><span class="va">subject</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> </span>
+<span>  <span class="fu">parse_all_by_all_compiled_results</span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># dbAppendTable(con,'full_wgs_compare', all_by_all_summary)</span></span></code></pre></div>
+<p>auditing the results</p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://tidyverse.tidyverse.org" class="external-link">tidyverse</a></span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://rsqlite.r-dbi.org" class="external-link">RSQLite</a></span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://here.r-lib.org/" class="external-link">here</a></span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">con</span> <span class="op">=</span> <span class="fu">dbConnect</span><span class="op">(</span><span class="fu">RSQLite</span><span class="fu">::</span><span class="fu"><a href="https://rsqlite.r-dbi.org/reference/SQLite.html" class="external-link">SQLite</a></span><span class="op">(</span><span class="op">)</span>,</span>
+<span>                <span class="fu"><a href="https://here.r-lib.org//reference/here.html" class="external-link">here</a></span><span class="op">(</span><span class="st">'llfs_rnaseq_data/llfs_rnaseq_database.sqlite'</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">wgs_subjects</span> <span class="op">=</span> <span class="fu"><a href="https://readr.tidyverse.org/reference/read_delim.html" class="external-link">read_csv</a></span><span class="op">(</span><span class="st">'/mnt/scratch/llfs_rna_dna_compare_test/lookups/wgs_dna_subject_ids.txt'</span>,</span>
+<span>                       col_names <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span><span class="op">$</span><span class="va">X1</span></span>
+<span></span>
+<span><span class="va">whatdatall_tbl</span> <span class="op">=</span> </span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/tbl.html" class="external-link">tbl</a></span><span class="op">(</span><span class="va">con</span>,<span class="st">'whatdatall'</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/compute.html" class="external-link">collect</a></span><span class="op">(</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>id<span class="op">=</span><span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">as.character</a></span><span class="op">(</span><span class="va">id</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">corrected_sample_tbl</span> <span class="op">=</span> </span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/tbl.html" class="external-link">tbl</a></span><span class="op">(</span><span class="va">con</span>, <span class="st">'corrected_sample'</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/compute.html" class="external-link">collect</a></span><span class="op">(</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">reason</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">'v1_transfer'</span>, <span class="st">'phantom'</span>, <span class="st">'manifest_typo'</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="op">-</span><span class="va">pk</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">genomic_origin_tbl</span> <span class="op">=</span> </span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/tbl.html" class="external-link">tbl</a></span><span class="op">(</span><span class="va">con</span>,<span class="st">'genomic_origin_view'</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/compute.html" class="external-link">collect</a></span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">wgs_compare_tbl</span> <span class="op">=</span> </span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/tbl.html" class="external-link">tbl</a></span><span class="op">(</span><span class="va">con</span>,<span class="st">'wgs_compare'</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/compute.html" class="external-link">collect</a></span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">library_tbl</span> <span class="op">=</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/tbl.html" class="external-link">tbl</a></span><span class="op">(</span><span class="va">con</span>,<span class="st">'library'</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> </span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/compute.html" class="external-link">collect</a></span><span class="op">(</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html" class="external-link">left_join</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">corrected_sample_tbl</span>,<span class="va">library_id</span>,<span class="va">whatdatall_id</span>,<span class="va">reason</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">reason</span><span class="op">)</span> <span class="op">|</span> <span class="va">reason</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">'v1_transfer'</span>, <span class="st">'manifest_typo'</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>fastq_id<span class="op">=</span><span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">whatdatall_id</span><span class="op">)</span>,<span class="va">whatdatall_id</span>,<span class="va">fastq_id</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="op">-</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">whatdatall_id</span>,<span class="va">reason</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html" class="external-link">left_join</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">whatdatall_tbl</span>,<span class="va">id</span>,<span class="va">subject</span><span class="op">)</span>, by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">'fastq_id'</span><span class="op">=</span><span class="st">'id'</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="fu"><a href="https://stringr.tidyverse.org/reference/str_detect.html" class="external-link">str_detect</a></span><span class="op">(</span><span class="va">fastq_id</span>,<span class="fu"><a href="https://stringr.tidyverse.org/reference/modifiers.html" class="external-link">regex</a></span><span class="op">(</span><span class="st">'pool'</span>,ignore_case<span class="op">=</span><span class="cn">TRUE</span><span class="op">)</span>,negate<span class="op">=</span><span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">subject</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">wgs_subjects</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html" class="external-link">left_join</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">genomic_origin_tbl</span>,<span class="va">library_id</span>,<span class="va">percent_intergenic</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">percent_intergenic</span> <span class="op">&lt;</span><span class="fl">0.08</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="fu"><a href="https://generics.r-lib.org/reference/setops.html" class="external-link">setdiff</a></span><span class="op">(</span><span class="va">library_tbl</span><span class="op">$</span><span class="va">library_id</span>,</span>
+<span>                         <span class="va">wgs_compare_tbl</span><span class="op">$</span><span class="va">library_id</span><span class="op">)</span><span class="op">)</span><span class="op">==</span><span class="fl">0</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">wgs_compare_potential_mislabels</span> <span class="op">=</span> </span>
+<span>  <span class="va">wgs_compare_tbl</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">total_variants</span> <span class="op">&lt;</span> <span class="fl">100</span> <span class="op">|</span> <span class="va">match_ratio</span> <span class="op">&lt;</span> <span class="fl">0.94</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">library_id</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span></span>
+<span>           <span class="op">(</span><span class="va">genomic_origin_tbl</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> </span>
+<span>           <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">percent_intergenic</span> <span class="op">&lt;</span> <span class="fl">0.08</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> </span>
+<span>           <span class="fu"><a href="https://dplyr.tidyverse.org/reference/pull.html" class="external-link">pull</a></span><span class="op">(</span><span class="va">library_id</span><span class="op">)</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">library_id</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">library_tbl</span><span class="op">$</span><span class="va">library_id</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">full_wgs_compare_tbl</span> <span class="op">=</span> </span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/tbl.html" class="external-link">tbl</a></span><span class="op">(</span><span class="va">con</span>,<span class="st">'full_wgs_compare'</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/compute.html" class="external-link">collect</a></span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://generics.r-lib.org/reference/setops.html" class="external-link">setdiff</a></span><span class="op">(</span><span class="va">wgs_compare_potential_mislabels</span><span class="op">$</span><span class="va">library_id</span>,</span>
+<span>        <span class="va">full_wgs_compare_tbl</span><span class="op">$</span><span class="va">library_id</span><span class="op">)</span></span></code></pre></div>
 <p>A work in progress is taking all of the gvcf files (the modified
 nf-core/rnavar pipeline outputs put vcf and gvcf files), combining them,
 and then using hte GATK joint variant caller. Doing this would allow the
 calculation of a kinship matrix, which may help further confirm the
 re-labelling, and also possibly identify and hopefully provide evidence
-for re-labelling mislabeled samples which do not have WGS data.</p>
+for re-labelling mislabeled librarys which do not have WGS data.</p>
+</div>
 </div>
   </div>
 

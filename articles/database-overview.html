@@ -132,71 +132,42 @@
     
     
 <div class="section level2">
-<h2 id="tldr">tl;dr<a class="anchor" aria-label="anchor" href="#tldr"></a>
+<h2 id="introduction">Introduction<a class="anchor" aria-label="anchor" href="#introduction"></a>
 </h2>
-<p>This database will make re-labelling samples less error prone, and
+<p>This database will make re-labeling libraries less error prone, and
 will make it much easier to submit to NCBI when the time comes. Below,
 you will find a description of each table and view in the database. For
-each table and view, the full desciption of each column is hidden by
+each table and view, the full description of each column is hidden by
 default – just click the “view full details” to expand a table that
 provides the definitions. For each <strong>table</strong> (but not view,
 which doesn’t have a primary key per se), the primary and foreign key(s)
-are shown in the Desription (not collapsed by default).</p>
-</div>
-<div class="section level2">
-<h2 id="introduction">Introduction<a class="anchor" aria-label="anchor" href="#introduction"></a>
-</h2>
-<p>This is a database whose purpose is to assign a unique ID to both
-“samples”, which can be thought of as a specific tube of blood donated
-by a given LLFS participant during a given visit, and to individual
-fastq files themselves. Note that one “sample” might have up to six or
-more (should be even, of course) fastq files – the paired-end R1 and R2,
-and sometimes a single sample has multiple R1 and R2 files over
-different lanes.</p>
-<p>Prior to the July, 2023 release, this data was being tracked in a
-series of excel files. It was challenging to keep track of what file was
-what as they were amended and passed back and forth. Since some of these
-files pertained to relabeling samples due to typos, or the result of
-comparing the RNA variants to the WGS data, and there did not exist a
-unique sample ID other than the combination of (subject, visit, batch),
-which was of course mutable since <code>subject</code> would need to be
-changed in the event of a mislabel, a database became a necessity.</p>
-<p>The result of using a database means that a sample is assigned an
-immutable primary key, the <a href="#sample">sample table</a> primary
-key, frequently referred to in other tables as <code>sample_id</code>.
-Changing any other labeling, for instance the <code>whatdatall</code>
-<code>identifier</code> and/or <code>subject</code>, becomes a simple
-task. Moreover, this means that by changing the <code>identifier</code>,
-you also change the <code>sex</code> – no more having to change two
-columns for every mislabel, a source of potential error that is easily
-avoided in a database.</p>
-</div>
-<div class="section level2">
-<h2 id="important">IMPORTANT<a class="anchor" aria-label="anchor" href="#important"></a>
-</h2>
+are shown in the Description (not collapsed by default).</p>
+<p>Note that one library might have up to six or more (should be even,
+of course) fastq files – the paired-end R1 and R2, and sometimes a
+single library has multiple R1 and R2 files over different lanes.</p>
+<div class="section level3">
+<h3 id="important">IMPORTANT<a class="anchor" aria-label="anchor" href="#important"></a>
+</h3>
 <p>Please note the following:</p>
-<p>All tables have an auto-incremented primary key called
-<code>pk</code>. This is because any column called <code>id</code> is
-specifically referring to the LLFS whatdatall <code>id</code>. However,
-when a field is a foreign key, I give it the suffix <code>_id</code>. So
-for example, <code>sample_id</code> is a foreign key to the
-<code>sample</code> table.</p>
-<p>This is not great – any specific suggestions on how to improve this
-naming would be appreciated.</p>
-<p>To make this more complicated, <code>fastq_id</code> is always a
-foreign key to the <code>fastq</code> table, but it has an additional
-meaning: the <code>fastq_id</code> is the <code>id</code> which the
-actual fastq file possesses. This <code>fastq_id</code> may be wrong –
-for example, if there was a typo, or that particular ID is in the
-visit_1 transfer set, or if it was determined to be mislabeled from the
-RNA variants vs WGS data comparison. In this case, a sample should be
-thought of as having a <code>fastq_id</code>, derived from the
-fastqfilename, but also a <code>whatdatall_id</code>, which results from
-a correction (<a href="#corrected_sample">see the corrected_samples
-table</a>). a given sample’s <code>subject</code> will always be
-assigned from the samples <code>whatdatall_id</code>, which, if you are
-using one of my views, is assigned after relabeling any known
-mislabels.</p>
+<p>All tables, except for library, whose primary key is
+<code>library_id</code>, and <code>batch</code>, whose primary key is
+<code>batch_id</code>, have an auto-incremented primary key called
+<code>pk</code>.</p>
+<p><code>fastq_id</code> is always a foreign key to the
+<code>fastq</code> table, but it has an additional meaning: the
+<code>fastq_id</code> is the <code>id</code> which the actual fastq file
+possesses. This <code>fastq_id</code> may be wrong – for example, if
+there was a typo, or that particular ID is in the visit_1 transfer set,
+or if it was determined to be mislabeled from the RNA variants vs WGS
+data comparison. In this case, a library should be thought of as having
+a <code>fastq_id</code>, derived from the filename of the fastq file,
+but also a <code>whatdatall_id</code>, which results from a correction
+(<a href="#manual_library_relabel">see the manual_library_relabel
+table</a> and <a href="#full_wgs_compare">full_wgs_compare table</a>). A
+given library’s <code>subject</code> will always be assigned from the
+library’s <code>whatdatall_id</code>, which, if you are using one of my
+views, is assigned after relabeling any known mislabels.</p>
+</div>
 </div>
 <div class="section level2">
 <h2 id="views">Views<a class="anchor" aria-label="anchor" href="#views"></a>
@@ -204,11 +175,10 @@ mislabels.</p>
 <p>A view is a saved SQL query. It provides a way to access joined
 and/or otherwise manipulated data as if it were a table.</p>
 <div class="section level3">
-<h3 id="llfs_rnaseq_metadata">llfs_rnaseq_metadata<a class="anchor" aria-label="anchor" href="#llfs_rnaseq_metadata"></a>
+<h3 id="llfs_rnaseq_subject">llfs_rnaseq_subject<a class="anchor" aria-label="anchor" href="#llfs_rnaseq_subject"></a>
 </h3>
-<p>This provides the metadata which I use when constructing the released
-data. Note that not all of these columns are provided in the metadata of
-the released data</p>
+<p>This is the <strong>main LLFS metadata</strong> and is what is used
+to create the metadata in the LLFS RNA Seq data releases.</p>
 <details><summary>
 LLFS RNAseq Metadata View
 </summary><table class="table">
@@ -226,10 +196,22 @@ LLFS RNAseq Metadata View
 </tr></thead>
 <tbody>
 <tr class="odd">
+<td>library_id</td>
+<td></td>
+<td>INTEGER</td>
+<td>The library ID (foreign key to the <code>library</code> table)</td>
+</tr>
+<tr class="even">
+<td>legal</td>
+<td></td>
+<td>TEXT</td>
+<td>Boolean column. Legal status. 1 if legal</td>
+</tr>
+<tr class="odd">
 <td>subject</td>
 <td></td>
 <td>INTEGER</td>
-<td>Subject information for the sample</td>
+<td>The LLFS subject identifier (see <code>whatdatall</code>)</td>
 </tr>
 <tr class="even">
 <td>visit</td>
@@ -248,88 +230,501 @@ LLFS phenotype data</td>
 table for details on how this is derived from visit</td>
 </tr>
 <tr class="even">
+<td>batch</td>
+<td></td>
+<td>INTEGER</td>
+<td>This is the name of the data directory on the DSG cluster and
+corresponds to the batch in which the sample was sequenced. See table
+<code>batch</code>
+</td>
+</tr>
+<tr class="odd">
 <td>sex</td>
 <td></td>
 <td>INTEGER</td>
-<td>The biological sex label of the sample, one of (0,1,2) where 0
-denotes a pooled control</td>
+<td>The subject’s sex. Note that if a library is relabeled, the sex is
+determined after relabeling</td>
+</tr>
+<tr class="even">
+<td>suspicious_sex</td>
+<td></td>
+<td>INTEGER</td>
+<td>see the <code>library</code> table for more details. This is this is
+a boolean (0,1 where 1 is TRUE) field which is TRUE if the library
+clearly shows sex chromosome expression opposite from its label. This
+column exists because not all RNAseq subjects have WGS data, so a TRUE
+here means that the subject did not exist in the WGS set AND it shows
+evidence of being mislabeled by sex chrom expression</td>
 </tr>
 <tr class="odd">
 <td>purpose</td>
 <td></td>
 <td>TEXT</td>
-<td>either ‘control’ or ‘experiment’. pooled and phantom samples are
-labelled ‘control’, all others are ‘experiment’</td>
+<td>either ‘control_phantom’, ‘control_pool’</td>
 </tr>
 <tr class="even">
-<td>sample_notes</td>
+<td>mislabel</td>
 <td></td>
-<td>TEXT</td>
-<td>Sample level notes</td>
+<td>INTEGER</td>
+<td>See the <code>library</code> table for more details. this is a
+boolean (0,1 where 1 is TRUE) field which is TRUE if the sample was
+clearly mislabelled during the WGS comparison, but the actual label was
+not found</td>
 </tr>
 <tr class="odd">
-<td>relabel_reason</td>
+<td>relabel</td>
 <td></td>
-<td>TEXT</td>
-<td>Reason for relabeling the sample (or “none” if not applicable)</td>
+<td>INTEGER</td>
+<td>See the <code>library</code> table for more details. this is a
+boolean (0,1 where 1 is TRUE) field which is TRUE if the sample has been
+relabeled for any reason, including as a result of the WGS vs RNA
+variant comparison, because the sample is a phantom control, or due to
+manifest typos or v1_transfers. See <code>notes</code> below.</td>
 </tr>
 <tr class="even">
-<td>mislabelled</td>
+<td>notes</td>
 <td></td>
 <td>INTEGER</td>
-<td>See the sample table for more details. this is a boolean (0,1 where
-1 is TRUE) field which is TRUE if the sample was clearly mislabelled
-during the WGS comparison, but the actual label was not found (not all
-RNAseq samples are WGS’ed)</td>
-</tr>
-<tr class="odd">
-<td>suspicious_sex</td>
-<td></td>
-<td>INTEGER</td>
-<td>see the sample table for more details. This is this is a boolean
-(0,1 where 1 is TRUE) field which is TRUE if the sample clearly shows
-sex chromosome expression opposite from its label. This column exists
-because not all RNAseq subjects have WGS data, so a TRUE here means that
-the subject did not exist in the WGS set AND it shows evidence of being
-mislabeled by sex chrom expression</td>
-</tr>
-<tr class="even">
-<td>legal</td>
-<td></td>
-<td>TEXT</td>
-<td>Reason for legal status (“yes” if not applicable)</td>
-</tr>
-<tr class="odd">
-<td>sample_id</td>
-<td></td>
-<td>INTEGER</td>
-<td>Primary key of the sample table. See the sample table for more
-details</td>
-</tr>
-<tr class="even">
-<td>batch_id</td>
-<td></td>
-<td>INTEGER</td>
-<td>Primary key from the batch table. see the batch table for more
-details</td>
-</tr>
-<tr class="odd">
-<td>chromosome_x</td>
-<td></td>
-<td>INTEGER</td>
-<td>Number of reads mapped to chromosome X</td>
-</tr>
-<tr class="even">
-<td>chromosome_y</td>
-<td></td>
-<td>INTEGER</td>
-<td>Number of reads mapped to chromosome Y</td>
+<td>notes on the samples, such as why it was labelled mislabel or
+relabel</td>
 </tr>
 <tr class="odd">
 <td>y_x_ratio</td>
 <td></td>
 <td>REAL</td>
 <td>Ratio of reads mapped to chromosome Y to chromosome X</td>
+</tr>
+<tr class="even">
+<td>library_total</td>
+<td></td>
+<td>REAL</td>
+<td>total size of the library</td>
+</tr>
+<tr class="odd">
+<td>percent_intergenic</td>
+<td></td>
+<td>REAL</td>
+<td>Percentage of reads in intergenic regions</td>
+</tr>
+<tr class="even">
+<td>hemoglobin_total</td>
+<td></td>
+<td>REAL</td>
+<td>total number of reads counted over 12 hemoglobin genes</td>
+</tr>
+<tr class="odd">
+<td>percent_hemoglobin</td>
+<td></td>
+<td>REAL</td>
+<td>total raw counts over 12 hemoglobin genes / library_size. see the
+expression_qc table for more details</td>
+</tr>
+<tr class="even">
+<td>protein_coding_total</td>
+<td></td>
+<td>REAL</td>
+<td>raw reads over loci denoted “protein_coding” in the gtf (you can
+discover this by loading the <code>dds</code> object and doing this
+<code>rowRanges(dds)$type == 'protein_coding'</code>
+</td>
+</tr>
+<tr class="odd">
+<td>percent_protein_coding</td>
+<td></td>
+<td>REAL</td>
+<td>protein_coding_total / library_size. see the expression_qc table for
+more details</td>
+</tr>
+<tr class="even">
+<td>rn7sl_total</td>
+<td></td>
+<td>REAL</td>
+<td>total number of reads over two rn7sl genes. These are highly over
+represented in nearly all of the libraries. see table
+<code>expression_qc</code> for more details</td>
+</tr>
+<tr class="odd">
+<td>percent_rn7sl</td>
+<td></td>
+<td>REAL</td>
+<td>total raw counts over two loci that are consistently, by far, the
+loci with the most counts. See expression_qc for more details</td>
+</tr>
+</tbody>
+</table></details>
+</div>
+<div class="section level3">
+<h3 id="llfs_rnaseq_id">llfs_rnaseq_id<a class="anchor" aria-label="anchor" href="#llfs_rnaseq_id"></a>
+</h3>
+<p>This should be treated as an intermediate table, though it is useful
+if you wish to associate the LLFS IDs with the samples.</p>
+<details><summary>
+LLFS metadata ID View
+</summary><table class="table">
+<colgroup>
+<col width="16%">
+<col width="18%">
+<col width="9%">
+<col width="56%">
+</colgroup>
+<thead><tr class="header">
+<th>Field</th>
+<th>Purpose</th>
+<th>Datatype</th>
+<th>Description</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td>library_id</td>
+<td></td>
+<td>INTEGER</td>
+<td>The library ID (foreign key to the <code>library</code> table)</td>
+</tr>
+<tr class="even">
+<td>llfs_id</td>
+<td></td>
+<td>INTEGER</td>
+<td>The LLFS ID (see <code>whatdatall</code>)</td>
+</tr>
+<tr class="odd">
+<td>visit</td>
+<td></td>
+<td>TEXT</td>
+<td>Despite it not being an officially defined variable, visit is what
+is used in the fastqfilename. This must be translated to visitcode in
+order to join the RNAseq data on (subject,visitcode) to the rest of the
+LLFS phenotype data</td>
+</tr>
+<tr class="even">
+<td>visitcode</td>
+<td></td>
+<td>TEXT</td>
+<td>The whatdatall LLFS phenotype visitcode value. See the visitcode_map
+table for details on how this is derived from visit</td>
+</tr>
+<tr class="odd">
+<td>data_dir</td>
+<td></td>
+<td>INTEGER</td>
+<td>This is the name of the data directory on dsg. See table
+<code>batch</code>
+</td>
+</tr>
+<tr class="even">
+<td>purpose</td>
+<td></td>
+<td>TEXT</td>
+<td>either ‘control_phantom’, ‘control_pool’</td>
+</tr>
+<tr class="odd">
+<td>suspicious_sex</td>
+<td></td>
+<td>INTEGER</td>
+<td>see the library table for more details. This is this is a boolean
+(0,1 where 1 is TRUE) field which is TRUE if the library clearly shows
+sex chromosome expression opposite from its label. Note that this is
+applied after all other re-labeling is completed</td>
+</tr>
+<tr class="even">
+<td>mislabel</td>
+<td></td>
+<td>INTEGER</td>
+<td>See the <code>library</code> table for more details. this is a
+boolean (0,1 where 1 is TRUE) field which is TRUE if the library was
+clearly mislabeled during the WGS comparison, but the actual label was
+not found</td>
+</tr>
+<tr class="odd">
+<td>relabel</td>
+<td></td>
+<td>INTEGER</td>
+<td>See the <code>library</code> table for more details. this is a
+boolean (0,1 where 1 is TRUE) field which is TRUE if the library has
+been relabeled for any reason, including as a result of the WGS vs RNA
+variant comparison, because the library is a phantom control, or due to
+manifest typos or v1_transfers. See <code>notes</code> below.</td>
+</tr>
+<tr class="even">
+<td>notes</td>
+<td></td>
+<td>INTEGER</td>
+<td>notes on the libraries, such as why it was labelled mislabel or
+relabel</td>
+</tr>
+<tr class="odd">
+<td>legal</td>
+<td></td>
+<td>TEXT</td>
+<td>Boolean column. Legal status. 1 if legal</td>
+</tr>
+<tr class="even">
+<td>y_x_ratio</td>
+<td></td>
+<td>REAL</td>
+<td>Ratio of reads mapped to chromosome Y to chromosome X</td>
+</tr>
+<tr class="odd">
+<td>library_size</td>
+<td></td>
+<td>REAL</td>
+<td>total size of the library</td>
+</tr>
+<tr class="even">
+<td>percent_intergenic</td>
+<td></td>
+<td>REAL</td>
+<td>Percentage of reads in intergenic regions</td>
+</tr>
+<tr class="odd">
+<td>hemoglobin_total</td>
+<td></td>
+<td>REAL</td>
+<td>total number of reads counted over 12 hemoglobin genes</td>
+</tr>
+<tr class="even">
+<td>percent_hemoglobin</td>
+<td></td>
+<td>REAL</td>
+<td>total raw counts over 12 hemoglobin genes / library_size. see the
+expression_qc table for more details</td>
+</tr>
+<tr class="odd">
+<td>protein_coding_total</td>
+<td></td>
+<td>REAL</td>
+<td>raw reads over loci denoted “protein_coding” in the gtf (you can
+discover this by loading the <code>dds</code> object and doing this
+<code>rowRanges(dds)$type == 'protein_coding'</code>
+</td>
+</tr>
+<tr class="even">
+<td>percent_protein_coding</td>
+<td></td>
+<td>REAL</td>
+<td>protein_coding_total / library_size. see the expression_qc table for
+more details</td>
+</tr>
+<tr class="odd">
+<td>rn7sl_total</td>
+<td></td>
+<td>REAL</td>
+<td>total number of reads over two rn7sl genes. These are highly over
+represented in nearly all of the libraries. see table
+<code>expression_qc</code> for more details</td>
+</tr>
+<tr class="even">
+<td>percent_rn7sl</td>
+<td></td>
+<td>REAL</td>
+<td>total raw counts over two loci that are consistently, by far, the
+loci with the most counts. See expression_qc for more details</td>
+</tr>
+</tbody>
+</table></details>
+</div>
+<div class="section level3">
+<h3 id="filtered_wgs_compare">filtered_wgs_compare<a class="anchor" aria-label="anchor" href="#filtered_wgs_compare"></a>
+</h3>
+<p>This view summarizes the result of the all-by-all comparison between
+a given RNA Seq library and all 4,556 WGS samples. The all-by-all
+comparison candidates are chosen if the library is passing the
+percent_intergenic filter of 8%, has a <code>match_ratio</code> of less
+than .94 or has fewer than 100 <code>total_variants</code>.</p>
+<details><summary>
+Filtered WGS Compare
+</summary><table class="table">
+<colgroup>
+<col width="16%">
+<col width="18%">
+<col width="9%">
+<col width="56%">
+</colgroup>
+<thead><tr class="header">
+<th>Field</th>
+<th>Purpose</th>
+<th>Datatype</th>
+<th>Description</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td>empirical_best_id</td>
+<td></td>
+<td>INTEGER</td>
+<td>The LLFS ID corresponding to the best empirical match between RNA
+variants and WGS data</td>
+</tr>
+<tr class="even">
+<td>library_id</td>
+<td></td>
+<td>INTEGER</td>
+<td>
+<code>library_id</code> from the <code>library</code> table</td>
+</tr>
+<tr class="odd">
+<td>labelled_dna_subject</td>
+<td></td>
+<td>INTEGER</td>
+<td>the LLFS subject identifier corresponding to the LLFS ID which is
+contained in the library’s fastq filename</td>
+</tr>
+<tr class="even">
+<td>labelled_total_variants</td>
+<td></td>
+<td>INTEGER</td>
+<td>The total number of high quality variant locations in the RNA
+library over which there high quality WGS genotype data for a given
+subject</td>
+</tr>
+<tr class="odd">
+<td>labelled_match_variants</td>
+<td></td>
+<td>INTEGER</td>
+<td>The total number of <code>total_variants</code> locations over which
+the genotypes in the two samples matched</td>
+</tr>
+<tr class="even">
+<td>labelled_match_ratio</td>
+<td></td>
+<td>INTEGER</td>
+<td>
+<code>match_variants</code>/<code>total_variants</code>
+</td>
+</tr>
+<tr class="odd">
+<td>empirical_best_subject</td>
+<td></td>
+<td>INTEGER</td>
+<td>The LLFS subject corresponding to the best empirical match between
+RNA variants and WGS data</td>
+</tr>
+<tr class="even">
+<td>empirical_best_[total_variants,matching_variants,match_Ratio]</td>
+<td></td>
+<td>INTEGER</td>
+<td>same as the <code>labelled_...</code> columns above, but for the
+best empirical match</td>
+</tr>
+<tr class="odd">
+<td>empirical_next_subject</td>
+<td></td>
+<td>INTEGER</td>
+<td>The LLFS subject corresponding to the second best empirical match in
+the all by all comparison</td>
+</tr>
+<tr class="even">
+<td>empirical_next_[total_variants,matching_variants,match_Ratio]</td>
+<td></td>
+<td>INTEGER</td>
+<td>same as the <code>labelled_...</code> columns above, but for the
+second best empirical match</td>
+</tr>
+<tr class="odd">
+<td>chisq_labelled</td>
+<td></td>
+<td>INTEGER</td>
+<td>chisq pvalue for the labelled vs empirical best data</td>
+</tr>
+<tr class="even">
+<td>chisq_empirical</td>
+<td></td>
+<td>INTEGER</td>
+<td>chisq pvalue for the best empirical match vs the next best empirical
+match</td>
+</tr>
+<tr class="odd">
+<td>relabel</td>
+<td></td>
+<td>BOOLEAN</td>
+<td>if the empirical best match is different than the original label,
+has a match ratio of &gt;= .94 and both pvalues are significant, then
+the sample is relabeled (1). Else it is not (0)</td>
+</tr>
+</tbody>
+</table></details>
+</div>
+<div class="section level3">
+<h3 id="library_relabel_summary">library_relabel_summary<a class="anchor" aria-label="anchor" href="#library_relabel_summary"></a>
+</h3>
+<p>This provides an overview of all relabelled samples</p>
+<details><summary>
+Library Relabel Summary
+</summary><table class="table">
+<colgroup>
+<col width="15%">
+<col width="20%">
+<col width="7%">
+<col width="55%">
+</colgroup>
+<thead><tr class="header">
+<th>Field</th>
+<th>Purpose</th>
+<th>Datatype</th>
+<th>Description</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td>library_id</td>
+<td></td>
+<td>TEXT</td>
+<td>
+<code>library_id</code> from the <code>library</code> table</td>
+</tr>
+<tr class="even">
+<td>proposed_relabel_id</td>
+<td></td>
+<td>INTEGER</td>
+<td>The proposed relabel LLFS ID. Note that this is only applied in the
+metadata if <code>relabel</code> == 1</td>
+</tr>
+<tr class="odd">
+<td>mislabel</td>
+<td></td>
+<td>BOOLEAN</td>
+<td>0 if the sample is not a mislabel (ie, a phantom control), 1 if it
+is</td>
+</tr>
+<tr class="even">
+<td>relabel</td>
+<td></td>
+<td>BOOLEAN</td>
+<td>0 if the data does not support relabeling. 1 if it does. See the
+<code>filtered_wgs_compare</code> view for details</td>
+</tr>
+<tr class="odd">
+<td>notes</td>
+<td></td>
+<td>REAL</td>
+<td>any additional notes from the underlying tables</td>
+</tr>
+</tbody>
+</table></details>
+</div>
+<div class="section level3">
+<h3 id="genomic_origin_view">genomic_origin_view<a class="anchor" aria-label="anchor" href="#genomic_origin_view"></a>
+</h3>
+<p>This view provides information about the genomic origin of reads
+based on the <code>qualimap_genomic_origin</code> table.</p>
+<details><summary>
+Qualimap Genomic Origin View
+</summary><table class="table">
+<colgroup>
+<col width="15%">
+<col width="20%">
+<col width="7%">
+<col width="55%">
+</colgroup>
+<thead><tr class="header">
+<th>Field</th>
+<th>Purpose</th>
+<th>Datatype</th>
+<th>Description</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td>library_id</td>
+<td></td>
+<td>TEXT</td>
+<td>Foreign key to the library table</td>
 </tr>
 <tr class="even">
 <td>exonic</td>
@@ -367,56 +762,8 @@ details</td>
 <td>REAL</td>
 <td>Percentage of reads in intergenic regions</td>
 </tr>
-<tr class="even">
-<td>protein_coding_total</td>
-<td></td>
-<td>REAL</td>
-<td>raw reads over loci denoted “protein_coding” in the gtf (you can
-discover this by loading the <code>dds</code> object and doing this
-<code>rowRanges(dds)$type == 'protein_coding'</code>
-</td>
-</tr>
-<tr class="odd">
-<td>percent_protein_coding</td>
-<td></td>
-<td>REAL</td>
-<td>protein_coding_total / library_size. see the expression_qc table for
-more details</td>
-</tr>
-<tr class="even">
-<td>percent_hemoglobin</td>
-<td></td>
-<td>REAL</td>
-<td>total raw counts over 12 hemoglobin genes / library_size. see the
-expression_qc table for more details</td>
-</tr>
-<tr class="odd">
-<td>percent_rn7sl</td>
-<td></td>
-<td>REAL</td>
-<td>total raw counts over two loci that are consistently, by far, the
-loci with the most counts. See expression_qc for more details</td>
-</tr>
 </tbody>
 </table></details>
-</div>
-<div class="section level3">
-<h3 id="genomic_origin_view">genomic_origin_view<a class="anchor" aria-label="anchor" href="#genomic_origin_view"></a>
-</h3>
-<p>This view provides information about the genomic origin of reads
-based on the <code>qualimap_genomic_origin</code> table.</p>
-<details><summary>
-Qualimap Genomic Origin View
-</summary><div class="line-block">Field | Purpose | Datatype | Description |</div>
-|——————–|————————–|———-|———————————————————————-| | | sample_id | | TEXT
-| Foreign key to the sample table | | exonic | | INTEGER | Number of
-reads in exonic regions | | intronic | | INTEGER | Number of reads in
-intronic regions | | intergenic | | INTEGER | Number of reads in
-intergenic regions | | percent_exonic | | REAL | Percentage of reads in
-exonic regions | | percent_intronic | | REAL | Percentage of reads in
-intronic regions | | percent_intergenic | | REAL | Percentage of reads
-in intergenic regions |
-</details>
 </div>
 <div class="section level3">
 <h3 id="xy_ratio">xy_ratio<a class="anchor" aria-label="anchor" href="#xy_ratio"></a>
@@ -440,10 +787,10 @@ XY Ratio View
 </tr></thead>
 <tbody>
 <tr class="odd">
-<td>sample_id</td>
+<td>library_id</td>
 <td></td>
 <td>TEXT</td>
-<td>Foreign key to the sample table</td>
+<td>Foreign key to the library table</td>
 </tr>
 <tr class="even">
 <td>chromosome_x</td>
@@ -495,10 +842,12 @@ Full Table Details
 <td>auto incremented primary key</td>
 </tr>
 <tr class="even">
-<td>sample_id</td>
+<td>library_id</td>
 <td>foreign key</td>
 <td>INTEGER</td>
-<td>References the “pk” field in the “sample” table</td>
+<td>foreign key to the <code>library_id</code> in table
+<code>library</code>
+</td>
 </tr>
 <tr class="odd">
 <td>library_size</td>
@@ -621,10 +970,9 @@ the fastq files</td>
 </table></details>
 </div>
 <div class="section level3">
-<h3 id="corrected_sample">corrected_sample<a class="anchor" aria-label="anchor" href="#corrected_sample"></a>
+<h3 id="manual_library_relabel">manual_library_relabel<a class="anchor" aria-label="anchor" href="#manual_library_relabel"></a>
 </h3>
-<p>This table stores information about corrected samples. Note that only
-<code>legal == 'yes'</code> samples are present in this table</p>
+<p>This table stores information about batches.</p>
 <table class="table">
 <colgroup>
 <col width="17%">
@@ -646,10 +994,11 @@ the fastq files</td>
 <td>autoincremented primary key</td>
 </tr>
 <tr class="even">
-<td>sample_id</td>
-<td>foreign key to sample</td>
-<td>TEXT</td>
-<td>References the “pk” field in the “sample” table</td>
+<td>library_id</td>
+<td>foreign key</td>
+<td>INTEGER</td>
+<td>foreign key to the <code>library_id</code> field in the
+<code>library</code> table</td>
 </tr>
 </tbody>
 </table>
@@ -673,25 +1022,32 @@ Full Table Details
 <td>pk</td>
 <td>primary key</td>
 <td>INTEGER</td>
-<td>Add a brief explanation of the field here.</td>
+<td>autoincremented primary key</td>
 </tr>
 <tr class="even">
-<td>sample_id</td>
-<td>foreign key to sample</td>
-<td>TEXT</td>
-<td>Add a brief explanation of the field here.</td>
+<td>library_id</td>
+<td>foreign key</td>
+<td>INTEGER</td>
+<td>foreign key to the <code>library_id</code> field in the
+<code>library</code> table</td>
 </tr>
 <tr class="odd">
-<td>whatdatall_id</td>
-<td>foreign key to whatdatall</td>
-<td>TEXT</td>
-<td>Add a brief explanation of the field here.</td>
+<td>new_whatdatall_id</td>
+<td></td>
+<td>INTEGER</td>
+<td>The correct LLFS ID for this library</td>
 </tr>
 <tr class="even">
 <td>reason</td>
 <td></td>
 <td>TEXT</td>
-<td>Add a brief explanation of the field here.</td>
+<td>The reason why this library was relabeled</td>
+</tr>
+<tr class="odd">
+<td>notes</td>
+<td></td>
+<td>TEXT</td>
+<td>Free entry for any additional information</td>
 </tr>
 </tbody>
 </table></details>
@@ -723,10 +1079,10 @@ the code repo).</p>
 <td>auto incremented primary key</td>
 </tr>
 <tr class="even">
-<td>sample_id</td>
+<td>library_id</td>
 <td>foreign key</td>
 <td>INTEGER</td>
-<td>References the “pk” field in the “sample” table</td>
+<td>References the “library_id” field in the “library” table</td>
 </tr>
 </tbody>
 </table>
@@ -753,10 +1109,10 @@ Full Table Details
 <td>auto incremented primary key</td>
 </tr>
 <tr class="even">
-<td>sample_id</td>
+<td>library_id</td>
 <td>foreign key</td>
 <td>INTEGER</td>
-<td>References the “pk” field in the “sample” table</td>
+<td>References the “library_id” field in the “library” table</td>
 </tr>
 <tr class="odd">
 <td>library_size</td>
@@ -789,10 +1145,10 @@ Full Table Details
 <h3 id="fastq">fastq<a class="anchor" aria-label="anchor" href="#fastq"></a>
 </h3>
 <p>This table stores information about FASTQ files. Note that there may
-be more than 1 fastq record for each sample_id since there are some
-(quite a few) samples which have multiple lanes worth of paired-end
-libraries (so if 1 sample is split across two lanes, there would be 2 R1
-and 2 R2)</p>
+be more than 1 fastq record for each library_id since there are some
+(quite a few) libraries which have multiple lanes worth of paired-end
+libraries (so if 1 library is split across two lanes, there would be 2
+R1 and 2 R2)</p>
 <table class="table">
 <colgroup>
 <col width="17%">
@@ -814,10 +1170,10 @@ and 2 R2)</p>
 <td>auto incremented primary key</td>
 </tr>
 <tr class="even">
-<td>sample_id</td>
-<td>foreign key to sample</td>
+<td>library_id</td>
+<td>foreign key</td>
 <td>TEXT</td>
-<td>References the “pk” field in the “sample” table</td>
+<td>References the “library_id” field in the “library” table</td>
 </tr>
 </tbody>
 </table>
@@ -844,10 +1200,10 @@ Full Table Details
 <td>autoincremented primary key</td>
 </tr>
 <tr class="even">
-<td>sample_id</td>
-<td>foreign key to sample</td>
+<td>library_id</td>
+<td>foreign key</td>
 <td>INTEGER</td>
-<td>foreign key to the sample table</td>
+<td>foreign key to the library table</td>
 </tr>
 <tr class="odd">
 <td>fastq_1</td>
@@ -895,53 +1251,13 @@ Full Table Details
 </table></details>
 </div>
 <div class="section level3">
-<h3 id="id_correction">id_correction<a class="anchor" aria-label="anchor" href="#id_correction"></a>
-</h3>
-<p>This table stores a list of the possible reasons why a sample’s
-whatdatall ID might be corrected. It is used as a foreign key in
-<code>corrected_samples</code> to ensure that the
-<code>"corrected_samples"."reason"</code> field is consistent.</p>
-<table class="table">
-<colgroup>
-<col width="17%">
-<col width="23%">
-<col width="25%">
-<col width="33%">
-</colgroup>
-<thead><tr class="header">
-<th>Field</th>
-<th>Purpose</th>
-<th>Datatype</th>
-<th>Description</th>
-</tr></thead>
-<tbody>
-<tr class="odd">
-<td>reason</td>
-<td></td>
-<td>TEXT</td>
-<td>reason that the sample is being mislabelled</td>
-</tr>
-<tr class="even">
-<td>source</td>
-<td></td>
-<td>TEXT</td>
-<td>the file or way in which the mislabel was originally
-communicated</td>
-</tr>
-</tbody>
-</table>
-</div>
-<div class="section level3">
 <h3 id="multiqc_general">multiqc_general<a class="anchor" aria-label="anchor" href="#multiqc_general"></a>
 </h3>
 <p><strong>Note</strong>: parsing this data out of multiQC is a work in
 progress.</p>
 <p>This is the ‘general’ table stats from MultiQC and includes both
 alignment and read level QC. As a result, there are at least 3 records
-for each sample. This is not in its final form yet – I am still working
-on the parsing. However, you can extract the data, and the data is
-accurate. It is here if you are interested, and the parsing will imrpove
-over time.</p>
+for each library.</p>
 <table class="table">
 <colgroup>
 <col width="17%">
@@ -963,10 +1279,11 @@ over time.</p>
 <td>autoincremented primary key</td>
 </tr>
 <tr class="even">
-<td>sample_id</td>
-<td>foreign key to sample</td>
+<td>library_id</td>
+<td>foreign key</td>
 <td>INTEGER</td>
-<td>References the “pk” field in the “sample” table</td>
+<td>References the <code>library_id</code> field in the
+<code>library</code> table</td>
 </tr>
 </tbody>
 </table>
@@ -993,10 +1310,11 @@ Full Table Details
 <td>autoincremented primary key</td>
 </tr>
 <tr class="even">
-<td>sample_id</td>
-<td>foreign key to sample</td>
+<td>library_id</td>
+<td>foreign key</td>
 <td>INTEGER</td>
-<td>References the “pk” field in the “sample” table</td>
+<td>References the <code>library_id</code> field in the
+<code>library</code> table</td>
 </tr>
 <tr class="odd">
 <td>general.dupradar_intercept</td>
@@ -1808,10 +2126,11 @@ each category.</p>
 <td>autoincremented primary key</td>
 </tr>
 <tr class="even">
-<td>sample_id</td>
-<td>foreign key to sample</td>
+<td>library_id</td>
+<td>foreign key</td>
 <td>TEXT</td>
-<td>References the “pk” field in the “sample” table</td>
+<td>References the <code>library_id</code> field in the
+<code>library</code> table</td>
 </tr>
 </tbody>
 </table>
@@ -1838,10 +2157,11 @@ Full Table Details
 <td>autoincremented primary key</td>
 </tr>
 <tr class="even">
-<td>sample_id</td>
-<td>foreign key to sample</td>
+<td>library_id</td>
+<td>foreign key</td>
 <td>TEXT</td>
-<td>References the “pk” field in the “sample” table</td>
+<td>References the <code>library_id</code> field in the
+<code>library</code> table</td>
 </tr>
 <tr class="odd">
 <td>exonic</td>
@@ -1968,10 +2288,11 @@ sample should be removed</td>
 <td>autoincremented primary key</td>
 </tr>
 <tr class="even">
-<td>sample_id</td>
-<td>foreign key to sample</td>
+<td>library_id</td>
+<td>foreign key</td>
 <td>TEXT</td>
-<td>References the “pk” field in the “sample” table</td>
+<td>References the <code>library_id</code> field in the
+<code>library</code> table</td>
 </tr>
 </tbody>
 </table>
@@ -1998,10 +2319,11 @@ Full Table Details
 <td>autoincremented primary key</td>
 </tr>
 <tr class="even">
-<td>sample_id</td>
-<td>foreign key to sample</td>
+<td>library_id</td>
+<td>foreign key</td>
 <td>TEXT</td>
-<td>References the “pk” field in the “sample” table</td>
+<td>References the <code>library_id</code> field in the
+<code>library</code> table</td>
 </tr>
 <tr class="odd">
 <td>aligned_uniquely_to_a_gene</td>
@@ -2032,78 +2354,7 @@ multimaps</td>
 </table></details>
 </div>
 <div class="section level3">
-<h3 id="rsem_quant">rsem_quant<a class="anchor" aria-label="anchor" href="#rsem_quant"></a>
-</h3>
-<p>This table is a counterpart to the <code>fastq</code> table, but
-instead stores the <code>dsg</code> path to the RSEM quantification
-files</p>
-<table class="table">
-<colgroup>
-<col width="17%">
-<col width="23%">
-<col width="25%">
-<col width="33%">
-</colgroup>
-<thead><tr class="header">
-<th>Field</th>
-<th>Purpose</th>
-<th>Datatype</th>
-<th>Description</th>
-</tr></thead>
-<tbody>
-<tr class="odd">
-<td>pk</td>
-<td>primary key</td>
-<td>INTEGER</td>
-<td>autoincremented primary key</td>
-</tr>
-<tr class="even">
-<td>sample_id</td>
-<td>foreign key to sample</td>
-<td>TEXT</td>
-<td>References the “pk” field in the “sample” table</td>
-</tr>
-</tbody>
-</table>
-<details><summary>
-Full Table Details
-</summary><table class="table">
-<colgroup>
-<col width="17%">
-<col width="23%">
-<col width="25%">
-<col width="33%">
-</colgroup>
-<thead><tr class="header">
-<th>Field</th>
-<th>Purpose</th>
-<th>Datatype</th>
-<th>Description</th>
-</tr></thead>
-<tbody>
-<tr class="odd">
-<td>pk</td>
-<td>primary key</td>
-<td>INTEGER</td>
-<td>Add a brief explanation of the field here.</td>
-</tr>
-<tr class="even">
-<td>sample_id</td>
-<td>foreign key to sample</td>
-<td>INTEGER</td>
-<td>Add a brief explanation of the field here.</td>
-</tr>
-<tr class="odd">
-<td>rsem_isoform_quant</td>
-<td></td>
-<td>TEXT</td>
-<td>Add a brief explanation of the field here.</td>
-</tr>
-</tbody>
-</table></details>
-</div>
-<div class="section level3">
-<h3 id="sample">sample<a class="anchor" aria-label="anchor" href="#sample"></a>
+<h3 id="library">library<a class="anchor" aria-label="anchor" href="#library"></a>
 </h3>
 <p>This is a very important table. It essentially functions to assign a
 unique ID to each actual <em>sample</em> (remember a sample might have
@@ -2129,7 +2380,7 @@ with a different subject later on.</p>
 </tr></thead>
 <tbody>
 <tr class="odd">
-<td>pk</td>
+<td>library_id</td>
 <td>primary key</td>
 <td>INTEGER</td>
 <td>autoincremented primary key</td>
@@ -2159,7 +2410,7 @@ Full Table Details
 </tr></thead>
 <tbody>
 <tr class="odd">
-<td>pk</td>
+<td>library_id</td>
 <td>primary key</td>
 <td>INTEGER</td>
 <td>autoincremented primary key</td>
@@ -2183,27 +2434,14 @@ Full Table Details
 <td>References “pk” of the batch table</td>
 </tr>
 <tr class="odd">
-<td>mislabelled</td>
-<td></td>
-<td>BOOLEAN</td>
-<td>TRUE (1) if upon comparing the RNA variants to the corresponding
-subject’s WGS data, the RNA sampl was obviously mislabelled. BUT, the
-actual match could not be found (not all RNA samples have WGS data).
-Else FALSE (0)</td>
-</tr>
-<tr class="even">
 <td>suspicious_sex</td>
 <td></td>
 <td>BOOLEAN</td>
 <td>TRUE (1) if the sex expression is obviously opposite of what is
-labelled. A sample will</td>
-</tr>
-<tr class="odd">
-<td>be TRUE if it a) showed suspicious sex characteristics given its
-label and b) did not have data in the WGS data to do a comparison</td>
-<td></td>
-<td></td>
-<td></td>
+labelled. NOTE that this is a property of the library, not the
+<code>fastq_id</code>. This is applied only <strong>after</strong> doing
+the WGS and other relabeling and represents a sample which is mislabeled
+by sex and for which a correct relabeing cannot be found.</td>
 </tr>
 </tbody>
 </table></details>
@@ -2237,10 +2475,11 @@ counts to confirm the PCA results.</p>
 <td>autoincremented primary key</td>
 </tr>
 <tr class="even">
-<td>sample_id</td>
-<td>foreign key to sample</td>
+<td>library_id</td>
+<td>foreign key</td>
 <td>TEXT</td>
-<td>References the “pk” field in the “sample” table</td>
+<td>References the <code>library_id</code> field in the
+<code>library</code> table</td>
 </tr>
 </tbody>
 </table>
@@ -2267,10 +2506,11 @@ Full Table Details
 <td>autoincremented primary key</td>
 </tr>
 <tr class="even">
-<td>sample_id</td>
-<td>foreign key to sample</td>
+<td>library_id</td>
+<td>foreign key</td>
 <td>TEXT</td>
-<td>References the “pk” field in the “sample” table</td>
+<td>References the <code>library_id</code> field in the
+<code>library</code> table</td>
 </tr>
 <tr class="odd">
 <td>chromosome_x</td>
@@ -2382,12 +2622,6 @@ Full Table Details
 <p>This table stores the results of comparing the RNA sample variants to
 WGS sample variants</p>
 <table class="table">
-<colgroup>
-<col width="17%">
-<col width="23%">
-<col width="25%">
-<col width="33%">
-</colgroup>
 <thead><tr class="header">
 <th>Field</th>
 <th>Purpose</th>
@@ -2402,10 +2636,10 @@ WGS sample variants</p>
 <td>autoincremented primary key</td>
 </tr>
 <tr class="even">
-<td>sample_id</td>
-<td>foreign key to sample</td>
+<td>library_id</td>
+<td>foreign key</td>
 <td>INTEGER</td>
-<td>References “pk” of sample table</td>
+<td>References “pk” of library table</td>
 </tr>
 <tr class="odd">
 <td>dna_subject</td>
@@ -2438,10 +2672,10 @@ Full Table Details
 <td>autoincremented primary key</td>
 </tr>
 <tr class="even">
-<td>sample_id</td>
-<td>foreign key to sample</td>
+<td>library_id</td>
+<td>foreign key</td>
 <td>INTEGER</td>
-<td>References “pk” of sample table</td>
+<td>References “pk” of library table</td>
 </tr>
 <tr class="odd">
 <td>dna_subject</td>
