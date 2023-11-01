@@ -26,7 +26,7 @@ before_after_pca_and_plate_regression_plots(
 
 \item{meta}{sample metadata. Rows should be in same order as counts}
 
-\item{plate_colors}{vector of colors for each batch_id}
+\item{plate_colors}{vector of colors for each batch}
 
 \item{plot_title}{title of plot}
 

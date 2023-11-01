@@ -62,6 +62,10 @@ otherwise manipulated data as if it were a table.
 This is the __main LLFS metadata__ and is what is used to create the metadata
 in the LLFS RNA Seq data releases.
 
+__NOTE__: In the release data, the column `count_headers` is added, which
+corresponds to the corresponding release's plain text count data headers. It
+is formed by appending the string 'library_' to the `library_id`.
+
 <details>
 <summary>LLFS RNAseq Metadata View</summary>
 

@@ -29,21 +29,22 @@ You can use this in a couple different ways, but the starting point for all
 of those ways is the [served documentation](https://cmatkhan.github.io/LLFS_RNAseq_dataprocessing/). 
 I'd start with [**Getting Started**](https://cmatkhan.github.io/llfsRnaseq/articles/llfsRnaseq.html), myself.
 
-# Why Use DESeqDAtaSetObjects
+# Why Use DESeqDataSetObjects
 
-Even if you aren't going to do differential expression analysis, it is useful 
-to use the DESeqDataSet object. DESeqDataSet objects inherit from the base 
-bioconductor object 
+Even if you aren't going to do differential expression analysis using DESeq2,
+it is useful to use the DESeqDataSet object. DESeqDataSet objects inherit from
+the basebioconductor object 
 [SummarizedExperiment](https://www.bioconductor.org/packages/devel/bioc/vignettes/SummarizedExperiment/inst/doc/SummarizedExperiment.html).
- And, SummarizedExperiment is a core component of Bioconductor's 
- [Scalable Genomics Toolset](https://pubmed.ncbi.nlm.nih.gov/28018047/). Namely, 
- in the `dds` object, there are 3 data attributes: the `rowRages`, which store 
- the gencode v38 gene level gtf annotations as [GRanges](https://bioconductor.org/packages/release/bioc/vignettes/GenomicRanges/inst/doc/GenomicRangesIntroduction.html), 
- and you can access row (gene) and column (sample) information, each of which are 
- actually 2 dimensional arrays (or, a DataFrame in the case of the sample metadata). 
- If you aren't already familiar with using the Bioconductor core toolset, a little 
- bit of learning about these objects goes a long way in terms of how easy it is to 
- manipulate these data with these tools.
+ And, `SummarizedExperiment` is a core component of Bioconductor's 
+ [Scalable Genomics Toolset](https://pubmed.ncbi.nlm.nih.gov/28018047/).  
+ 
+The LLFS `dds` object has the GRCh38 annotations stored in the `rowRanges`. The
+metadata rows also are forced to correspond to the count columns. So, you could
+choose a single gene in a single sample like this:
+
+```R
+dds['ENSG....', dds$library_id==2]
+```
  
  # Some final notes
  
