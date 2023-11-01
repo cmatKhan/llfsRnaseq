@@ -26,24 +26,24 @@ library(tidyverse)
 library(here)
 
 # control output ---------------------------------------------------------------
-WRITE_OUT = TRUE
+WRITE_OUT = FALSE 
 LOCAL = FALSE
 
 # set variables ----------------------------------------------------------------
-BATCH = "s6420"
+BATCH = "20231016"
 
-FASTQ_DIR = "s6420"
+FASTQ_DIR = "20231016"
 
 # read in mgi metadata ---------------------------------------------------------
 stopifnot(str_detect(FASTQ_DIR, BATCH))
 
 DEMUX_PREFIX = "demux_table_"
 LOCAL_FASTQ_PREFIX = file.path(
-  "/mnt/scratch/llfs_rnaseq_dataprocessing/llfs_rna_pipeline/data",
+  "/mnt/scratch/llfs_rna_pipeline/data",
   FASTQ_DIR)
 
 OUT_FASTQ_PREFIX = file.path(
-  "/scratch/mblab/chasem/llfs_rnaseq_dataprocessing/llfs_rna_pipeline/data",
+  "/scratch/mblab/chasem/llfs_rna_pipeline/data",
   FASTQ_DIR)
 
 
@@ -110,7 +110,7 @@ nf_samplesheet = demux_table_mutate %>%
 if(WRITE_OUT){
   write_csv(nf_samplesheet,
           file.path(
-            "/mnt/scratch/llfs_rnaseq_dataprocessing/llfs_rna_pipeline",
+            "/mnt/scratch/llfs_rna_pipeline",
             "sample_sheets",
             paste0(BATCH, ".csv")))
 }

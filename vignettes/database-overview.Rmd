@@ -15,65 +15,40 @@ knitr::opts_chunk$set(
 )
 ```
 
-# tl;dr
-
-This database will make re-labelling samples less error prone, and will make 
-it much easier to submit to NCBI when the time comes. Below, you will find a 
-description of each table and view in the database. For each table and view, 
-the full desciption of each column is hidden by default -- just click the 
-"view full details" to expand a table that provides the definitions. For 
-each **table** (but not view, which doesn't have a primary key per se), the 
-primary and foreign key(s) are shown in the Desription (not collapsed 
-by default).
-
 # Introduction
 
-This is a database whose purpose is to assign a unique ID to both "samples", 
-which can be thought of as a specific tube of blood donated by a given 
-LLFS participant during a given visit, and to individual fastq files themselves. 
-Note that one "sample" might have up to six or more (should be even, of course) 
-fastq files -- the paired-end R1 and R2, and sometimes a single sample has 
+This database will make re-labeling libraries less error prone, and will make 
+it much easier to submit to NCBI when the time comes. Below, you will find a 
+description of each table and view in the database. For each table and view, 
+the full description of each column is hidden by default -- just click the 
+"view full details" to expand a table that provides the definitions. For 
+each **table** (but not view, which doesn't have a primary key per se), the 
+primary and foreign key(s) are shown in the Description (not collapsed 
+by default).
+
+Note that one library might have up to six or more (should be even, of course) 
+fastq files -- the paired-end R1 and R2, and sometimes a single library has 
 multiple R1 and R2 files over different lanes.  
 
-Prior to the July, 2023 release, this data was being tracked in a series of 
-excel files. It was challenging to keep track of what file was what as they 
-were amended and passed back and forth. 
-Since some of these files pertained to relabeling samples due 
-to typos, or the result of comparing the RNA variants to the WGS data, and there 
-did not exist a unique sample ID other than the combination of 
-(subject, visit, batch), which was of course mutable since `subject` would need 
-to be changed in the event of a mislabel, a database became a necessity.
-
-The result of using a database means that a sample is assigned an immutable 
-primary key, the [sample table](#sample) primary key, frequently referred to 
-in other tables as `sample_id`. 
-Changing any other labeling, for instance the `whatdatall` 
-`identifier` and/or `subject`, becomes a simple task. Moreover, this means that 
-by changing the `identifier`, you also change the `sex` -- no more having to 
-change two columns for every mislabel, a source of potential error that 
-is easily avoided in a database.
-
-# IMPORTANT
+## IMPORTANT
 
 Please note the following:
 
-All tables have an auto-incremented primary key called `pk`. This is because 
-any column called `id` is specifically referring to the LLFS whatdatall `id`. 
-However, when a field is a foreign key, I give it the suffix `_id`. So for 
-example, `sample_id` is a foreign key to the `sample` table.  
+All tables, except for library, whose primary key is `library_id`, and `batch`,
+whose primary key is `batch_id`,
+have an auto-incremented primary key called `pk`.
 
-This is not great -- any specific suggestions on how to improve this naming 
-would be appreciated.  
-
-To make this more complicated, `fastq_id` is always a foreign key to the 
+`fastq_id` is always a foreign key to the 
 `fastq` table, but it has an additional meaning: the `fastq_id` is the `id` 
 which the actual fastq file possesses. This `fastq_id` may be wrong -- for 
 example, if there was a typo, or that particular ID is in the visit_1 transfer 
 set, or if it was determined to be mislabeled from the RNA variants vs WGS 
-data comparison. In this case, a sample should be thought of as having a 
-`fastq_id`, derived from the fastqfilename, but also a `whatdatall_id`, which 
-results from a correction ([see the corrected_samples table](#corrected_sample)). 
-a given sample's `subject` will always be assigned from the samples 
+data comparison. In this case, a library should be thought of as having a 
+`fastq_id`, derived from the filename of the fastq file,
+but also a `whatdatall_id`, which results from a correction
+([see the manual_library_relabel table](#manual_library_relabel)
+and [full_wgs_compare table](#full_wgs_compare)). 
+A given library's `subject` will always be assigned from the library's 
 `whatdatall_id`, which, if you are using one of my views, is assigned after 
 relabeling any known mislabels.  
 
@@ -82,44 +57,118 @@ relabeling any known mislabels.
 A view is a saved SQL query. It provides a way to access joined and/or 
 otherwise manipulated data as if it were a table.
 
-## llfs_rnaseq_metadata
+## llfs_rnaseq_subject
 
-This provides the metadata which I use when constructing the released data. 
-Note that not all of these columns are provided in the metadata of the 
-released data
+This is the __main LLFS metadata__ and is what is used to create the metadata
+in the LLFS RNA Seq data releases.
 
 <details>
 <summary>LLFS RNAseq Metadata View</summary>
 
 | Field           | Purpose           | Datatype | Description                                               |
 |-----------------|-------------------|----------|-----------------------------------------------------------|
-| subject         |                   | INTEGER  | Subject information for the sample                         |
+| library_id      |                   | INTEGER  | The library ID (foreign key to the `library` table)         |
+| legal           |                   | TEXT     | Boolean column. Legal status. 1 if legal           |
+| subject         |                   | INTEGER  | The LLFS subject identifier (see `whatdatall`)                              |
 | visit           |                   | TEXT     | Despite it not being an officially defined variable, visit is what is used in the fastqfilename. This must be translated to visitcode in order to join the RNAseq data on (subject,visitcode) to the rest of the LLFS phenotype data|
-| visitcode           |                   | TEXT     | The whatdatall LLFS phenotype visitcode value. See the visitcode_map table for details on how this is derived from visit |
-| sex             |                   | INTEGER  | The biological sex label of the sample, one of (0,1,2) where 0 denotes a pooled control |
-| purpose  |                     | TEXT     | either 'control' or 'experiment'. pooled and phantom samples are labelled 'control', all others are 'experiment' |
-| sample_notes  |                     | TEXT     | Sample level notes |
-| relabel_reason  |                   | TEXT     | Reason for relabeling the sample (or "none" if not applicable)|
-| mislabelled     |                   | INTEGER  | See the sample table for more details. this is a boolean (0,1 where 1 is TRUE) field which is TRUE if the sample was clearly mislabelled during the WGS comparison, but the actual label was not found (not all RNAseq samples are WGS'ed)     |
-| suspicious_sex  |                   | INTEGER  | see the sample table for more details. This is this is a boolean (0,1 where 1 is TRUE) field which is TRUE if the sample clearly shows sex chromosome expression opposite from its label. This column exists because not all RNAseq subjects have WGS data, so a TRUE here means that the subject did not exist in the WGS set AND it shows evidence of being mislabeled by sex chrom expression |
-| legal           |                   | TEXT     | Reason for legal status ("yes" if not applicable)           |
-| sample_id       |                   | INTEGER  | Primary key of the sample table. See the sample table for more details|
-| batch_id        |                   | INTEGER  | Primary key from the batch table. see the batch table for more details|
-| chromosome_x    |                   | INTEGER  | Number of reads mapped to chromosome X                     |
-| chromosome_y    |                   | INTEGER  | Number of reads mapped to chromosome Y                     |
+| visitcode       |                   | TEXT     | The whatdatall LLFS phenotype visitcode value. See the visitcode_map table for details on how this is derived from visit |
+| batch        |                   | INTEGER  | This is the name of the data directory on the DSG cluster and corresponds to the batch in which the sample was sequenced. See table `batch` |
+| sex         |                   | INTEGER  | The subject's sex. Note that if a library is relabeled, the sex is determined after relabeling                              |
+| suspicious_sex  |                   | INTEGER  | see the `library` table for more details. This is this is a boolean (0,1 where 1 is TRUE) field which is TRUE if the library clearly shows sex chromosome expression opposite from its label. This column exists because not all RNAseq subjects have WGS data, so a TRUE here means that the subject did not exist in the WGS set AND it shows evidence of being mislabeled by sex chrom expression |
+| purpose  |                     | TEXT     | either 'control_phantom', 'control_pool' |
+| mislabel     |                   | INTEGER  | See the `library` table for more details. this is a boolean (0,1 where 1 is TRUE) field which is TRUE if the sample was clearly mislabelled during the WGS comparison, but the actual label was not found|
+| relabel     |                   | INTEGER  | See the `library` table for more details. this is a boolean (0,1 where 1 is TRUE) field which is TRUE if the sample has been relabeled for any reason, including as a result of the WGS vs RNA variant comparison, because the sample is a phantom control, or due to manifest typos or v1_transfers. See `notes` below.|
+| notes     |                   | INTEGER  | notes on the samples, such as why it was labelled mislabel or relabel|
 | y_x_ratio       |                   | REAL     | Ratio of reads mapped to chromosome Y to chromosome X      |
-| exonic          |                   | INTEGER  | Number of reads in exonic regions                          |
-| intronic        |                   | INTEGER  | Number of reads in intronic regions                        |
-| intergenic      |                   | INTEGER  | Number of reads in intergenic regions                      |
-| percent_exonic  |                   | REAL     | Percentage of reads in exonic regions                      |
-| percent_intronic|                   | REAL     | Percentage of reads in intronic regions                    |
-| percent_intergenic|                  | REAL     | Percentage of reads in intergenic regions                  |
+| library_total    |                   | REAL     | total size of the library      |
+| percent_intergenic |                  | REAL     | Percentage of reads in intergenic regions                  |
+| hemoglobin_total |                  | REAL     | total number of reads counted over 12 hemoglobin genes                  |
+| percent_hemoglobin|                  | REAL     | total raw counts over 12 hemoglobin genes / library_size. see the expression_qc table for more details |
 | protein_coding_total|                  | REAL     | raw reads over loci denoted "protein_coding" in the gtf (you can discover this by loading the `dds` object and doing this `rowRanges(dds)$type == 'protein_coding'`|
 | percent_protein_coding|                  | REAL     | protein_coding_total / library_size. see the expression_qc table for more details |
+| rn7sl_total|                  | REAL     | total number of reads over two rn7sl genes. These are highly over represented in nearly all of the libraries. see table `expression_qc` for more details |
+| percent_rn7sl|                  | REAL     | total raw counts over two loci that are consistently, by far, the loci with the most counts. See expression_qc for more details |
+
+## llfs_rnaseq_id
+
+This should be treated as an intermediate table, though it is useful if you
+wish to associate the LLFS IDs with the samples.
+
+<details>
+<summary>LLFS RNAseq Metadata View</summary>
+
+| Field           | Purpose           | Datatype | Description                                               |
+|-----------------|-------------------|----------|-----------------------------------------------------------|
+| library_id      |                   | INTEGER  | The library ID (foreign key to the `library` table)         |
+| llfs_id         |                   | INTEGER  | The LLFS ID (see `whatdatall`)                              |
+
+| visit           |                   | TEXT     | Despite it not being an officially defined variable, visit is what is used in the fastqfilename. This must be translated to visitcode in order to join the RNAseq data on (subject,visitcode) to the rest of the LLFS phenotype data|
+| visitcode       |                   | TEXT     | The whatdatall LLFS phenotype visitcode value. See the visitcode_map table for details on how this is derived from visit |
+| data_dir        |                   | INTEGER  | This is the name of the data directory on dsg. See table `batch` |
+| purpose  |                     | TEXT     | either 'control_phantom', 'control_pool' |
+| suspicious_sex  |                   | INTEGER  | see the library table for more details. This is this is a boolean (0,1 where 1 is TRUE) field which is TRUE if the library clearly shows sex chromosome expression opposite from its label. Note that this is applied after all other re-labeling is completed |
+| mislabel     |                   | INTEGER  | See the `library` table for more details. this is a boolean (0,1 where 1 is TRUE) field which is TRUE if the  library was clearly mislabeled during the WGS comparison, but the actual label was not found|
+| relabel     |                   | INTEGER  | See the `library` table for more details. this is a boolean (0,1 where 1 is TRUE) field which is TRUE if the library has been relabeled for any reason, including as a result of the WGS vs RNA variant comparison, because the library is a phantom control, or due to manifest typos or v1_transfers. See `notes` below.|
+| notes     |                   | INTEGER  | notes on the libraries, such as why it was labelled mislabel or relabel|
+| legal           |                   | TEXT     | Boolean column. Legal status. 1 if legal           |
+| y_x_ratio       |                   | REAL     | Ratio of reads mapped to chromosome Y to chromosome X      |
+| library_size    |                   | REAL     | total size of the library      |
+| percent_intergenic |                  | REAL     | Percentage of reads in intergenic regions                  |
+| hemoglobin_total |                  | REAL     | total number of reads counted over 12 hemoglobin genes                  |
 | percent_hemoglobin|                  | REAL     | total raw counts over 12 hemoglobin genes / library_size. see the expression_qc table for more details |
+| protein_coding_total|                  | REAL     | raw reads over loci denoted "protein_coding" in the gtf (you can discover this by loading the `dds` object and doing this `rowRanges(dds)$type == 'protein_coding'`|
+| percent_protein_coding|                  | REAL     | protein_coding_total / library_size. see the expression_qc table for more details |
+| rn7sl_total|                  | REAL     | total number of reads over two rn7sl genes. These are highly over represented in nearly all of the libraries. see table `expression_qc` for more details |
 | percent_rn7sl|                  | REAL     | total raw counts over two loci that are consistently, by far, the loci with the most counts. See expression_qc for more details |
 
 </details>  
+
+## filtered_wgs_compare
+
+This view summarizes the result of the all-by-all comparison between a given
+RNA Seq library and all 4,556 WGS samples. The all-by-all comparison candidates
+are chosen if the library is passing the percent_intergenic filter of 8%, 
+has a `match_ratio` of less than .94 or has fewer than 100 `total_variants`.
+
+<details>
+<summary>Filtered WGS Compare</summary>
+
+| Field           | Purpose           | Datatype | Description                                               |
+|-----------------|-------------------|----------|-----------------------------------------------------------|
+|empirical_best_id|                   | INTEGER  | The LLFS ID corresponding to the best empirical match between RNA variants and WGS data |
+|library_id|                          | INTEGER  | `library_id` from the `library` table |
+|labelled_dna_subject|                          | INTEGER  | the LLFS subject identifier corresponding to the LLFS ID which is contained in the library's fastq filename |
+|labelled_total_variants|                          | INTEGER  | The total number of high quality variant locations in the RNA library over which there high quality WGS genotype data for a given subject |
+|labelled_match_variants|                          | INTEGER  | The total number of `total_variants` locations over which the genotypes in the two samples matched |
+|labelled_match_ratio|                          | INTEGER  | `match_variants`/`total_variants` |
+|empirical_best_subject|                          | INTEGER  | The LLFS subject corresponding to the best empirical match between RNA variants and WGS data|
+|empirical_best_[total_variants,matching_variants,match_Ratio]|                          | INTEGER  | same as the `labelled_...` columns above, but for the best empirical match|
+|empirical_next_subject|                          | INTEGER  | The LLFS subject corresponding to the second best empirical match in the all by all comparison|
+|empirical_next_[total_variants,matching_variants,match_Ratio]|                          | INTEGER  | same as the `labelled_...` columns above, but for the second best empirical match|
+|chisq_labelled|                          | INTEGER  | chisq pvalue for the labelled vs empirical best data|
+|chisq_empirical|                          | INTEGER  | chisq pvalue for the best empirical match vs the next best empirical match|
+|relabel|                          | BOOLEAN  | if the empirical best match is different than the original label, has a match ratio of >= .94 and both pvalues are significant, then the sample is relabeled (1). Else it is not (0)|
+
+</details>
+
+
+## library_relabel_summary
+
+This provides an overview of all relabelled samples
+
+<details>
+
+<summary>Library Relabel Summary</summary>
+
+| Field              | Purpose                  | Datatype | Description                                                          |
+|--------------------|--------------------------|----------|----------------------------------------------------------------------|                           
+| library_id          |                          | TEXT     | `library_id` from the `library` table                                       |
+| proposed_relabel_id           |                          | INTEGER  | The proposed relabel LLFS ID. Note that this is only applied in the metadata if `relabel` == 1                                   |
+| mislabel        |                          | BOOLEAN  | 0 if the sample is not a mislabel (ie, a phantom control), 1 if it is                                |
+| relabel     |                          | BOOLEAN     | 0 if the data does not support relabeling. 1 if it does. See the `filtered_wgs_compare` view for details                            |
+| notes   |                          | REAL     | any additional notes from the underlying tables                           |
+
+</details>
 
 ## genomic_origin_view
 
@@ -130,8 +179,8 @@ This view provides information about the genomic origin of reads based on the `q
 <summary>Qualimap Genomic Origin View</summary>
 
 | Field              | Purpose                  | Datatype | Description                                                          |
-|--------------------|--------------------------|----------|----------------------------------------------------------------------|                                           |
-| sample_id          |                          | TEXT     | Foreign key to the sample table                                       |
+|--------------------|--------------------------|----------|----------------------------------------------------------------------|
+| library_id          |                          | TEXT     | Foreign key to the library table                                       |
 | exonic             |                          | INTEGER  | Number of reads in exonic regions                                     |
 | intronic           |                          | INTEGER  | Number of reads in intronic regions                                   |
 | intergenic         |                          | INTEGER  | Number of reads in intergenic regions                                 |
@@ -151,7 +200,7 @@ the `samtools_idxstats_xy_plot` table.
 
 | Field        | Purpose                  | Datatype | Description                             |
 |--------------|--------------------------|----------|-----------------------------------------|
-| sample_id    |                          | TEXT     | Foreign key to the sample table          |
+| library_id    |                          | TEXT     | Foreign key to the library table          |
 | chromosome_x |                          | INTEGER  | Number of reads mapped to chromosome X   |
 | chromosome_y |                          | INTEGER  | Number of reads mapped to chromosome Y   |
 | y_x_ratio    |                          | REAL     | Ratio of reads mapped to Y over reads mapped to X |
@@ -170,7 +219,7 @@ the hemoglobin, rn7sl and protein_coding_total / library size
 | Field                  | Purpose                   | Datatype | Description                                                  |
 |------------------------|---------------------------|----------|--------------------------------------------------------------|
 | pk                     | primary key autoincrement | INTEGER  | auto incremented primary key |
-| sample_id              | foreign key               | INTEGER  | References the "pk" field in the "sample" table              |
+| library_id              | foreign key               | INTEGER  | foreign key to the `library_id` in table `library`             |
 | library_size           |                           | INTEGER  | Holds the library size data for each record                  |
 | protein_coding_total   |                           | INTEGER  | Represents the total count of protein coding for each record |
 | hemoglobin_counts      |                           | INTEGER  | Stores the count of hemoglobin for each record               |
@@ -211,25 +260,26 @@ This table stores information about batches.
 
 </details>
 
-## corrected_sample 
+## manual_library_relabel
 
-This table stores information about corrected samples. Note that only 
-`legal == 'yes'` samples are present in this table
+This table stores information about batches. 
 
 | Field | Purpose | Datatype | Description |
 |-------|---------|----------|-------------|
 | pk | primary key | INTEGER | autoincremented primary key |
-| sample_id | foreign key to sample | TEXT | References the "pk" field in the "sample" table   |
+| library_id | foreign key | INTEGER | foreign key to the `library_id` field in the `library` table |
+
 
 <details>
 <summary>Full Table Details</summary>
 
 | Field | Purpose | Datatype | Description |
 |-------|---------|----------|-------------|
-| pk | primary key | INTEGER | Add a brief explanation of the field here. |
-| sample_id | foreign key to sample | TEXT | Add a brief explanation of the field here. |
-| whatdatall_id | foreign key to whatdatall | TEXT | Add a brief explanation of the field here. |
-| reason |  | TEXT | Add a brief explanation of the field here. |
+| pk | primary key | INTEGER | autoincremented primary key |
+| library_id | foreign key | INTEGER | foreign key to the `library_id` field in the `library` table |
+| new_whatdatall_id |  | INTEGER | The correct LLFS ID  for this library |
+| reason |  | TEXT | The reason why this library was relabeled |
+| notes |  | TEXT | Free entry for any additional information |
 
 </details>
 
@@ -242,7 +292,7 @@ code repo).
 | Field                  | Purpose                   | Datatype | Description                                                  |
 |------------------------|---------------------------|----------|--------------------------------------------------------------|
 | pk                     | primary key autoincrement | INTEGER  | auto incremented primary key |
-| sample_id              | foreign key               | INTEGER  | References the "pk" field in the "sample" table  
+| library_id              | foreign key               | INTEGER  | References the "library_id" field in the "library" table  
 
 <details>
 
@@ -251,7 +301,7 @@ code repo).
 | Field                  | Purpose                   | Datatype | Description                                                  |
 |------------------------|---------------------------|----------|--------------------------------------------------------------|
 | pk                     | primary key autoincrement | INTEGER  | auto incremented primary key |
-| sample_id              | foreign key               | INTEGER  | References the "pk" field in the "sample" table              |
+| library_id              | foreign key               | INTEGER  | References the "library_id" field in the "library" table              |
 | library_size           |                           | INTEGER  | Holds the library size data for each record                  |
 | protein_coding_total   |                           | INTEGER  | Represents the total count of protein coding for each record |
 | hemoglobin_counts      |                           | INTEGER  | Stores the count of hemoglobin for each record               |
@@ -264,14 +314,14 @@ code repo).
 ## fastq 
 
 This table stores information about FASTQ files. Note that there may be 
-more than 1 fastq record for each sample_id since there are some (quite a few) 
-samples which have multiple lanes worth of paired-end libraries (so if 1 
-sample is split across two lanes, there would be 2 R1 and 2 R2)
+more than 1 fastq record for each library_id since there are some (quite a few) 
+libraries which have multiple lanes worth of paired-end libraries (so if 1 
+library is split across two lanes, there would be 2 R1 and 2 R2)
 
 | Field | Purpose | Datatype | Description |
 |-------|---------|----------|-------------|
 | pk | primary key | INTEGER | auto incremented primary key |
-| sample_id | foreign key to sample | TEXT | References the "pk" field in the "sample" table   |
+| library_id | foreign key| TEXT | References the "library_id" field in the "library" table   |
 
 <details>
 <summary>Full Table Details</summary>
@@ -279,7 +329,7 @@ sample is split across two lanes, there would be 2 R1 and 2 R2)
 | Field | Purpose | Datatype | Description |
 |-------|---------|----------|-------------|
 | pk | primary key | INTEGER | autoincremented primary key |
-| sample_id | foreign key to sample | INTEGER | foreign key to the sample table |
+| library_id | foreign key| INTEGER | foreign key to the library table |
 | fastq_1 |  | TEXT | name of the R1 fastq file |
 | fastq_2 |  | TEXT | name of the R2 fastq file |
 | strandedness |  | TEXT | the strandedness of the library protocol |
@@ -290,35 +340,17 @@ sample is split across two lanes, there would be 2 R1 and 2 R2)
 
 </details>
 
-
-## id_correction 
-
-This table stores a list of the possible reasons why a sample's whatdatall ID 
-might be corrected. It is used as a foreign key in `corrected_samples` to 
-ensure that the `"corrected_samples"."reason"` field is consistent.
-
-| Field | Purpose | Datatype | Description |
-|-------|---------|----------|-------------|
-| reason |  | TEXT | reason that the sample is being mislabelled |
-| source |  | TEXT | the file or way in which the mislabel was originally communicated |
-
-
-
-
 ## multiqc_general 
 
 **Note**: parsing this data out of multiQC is a work in progress.
 
 This is the 'general' table stats from MultiQC and includes both alignment 
-and read level QC. As a result, there are at least 3 records for each sample. 
-This is not in its final form yet -- I am still working on the parsing. However, 
-you can extract the data, and the data is accurate. It is here if you are 
-interested, and the parsing will imrpove over time.
+and read level QC. As a result, there are at least 3 records for each library. 
 
 | Field | Purpose | Datatype | Description |
 |-------|---------|----------|-------------|
 | pk | primary key | INTEGER | autoincremented primary key |
-| sample_id | foreign key to sample | INTEGER | References the "pk" field in the "sample" table |
+| library_id | foreign key| INTEGER | References the `library_id` field in the `library` table |
 
 <details>
 <summary>Full Table Details</summary>
@@ -326,7 +358,7 @@ interested, and the parsing will imrpove over time.
 | Field | Purpose | Datatype | Description |
 |-------|---------|----------|-------------|
 | pk | primary key | INTEGER | autoincremented primary key |
-| sample_id | foreign key to sample | INTEGER | References the "pk" field in the "sample" table |
+| library_id | foreign key| INTEGER | References the `library_id` field in the `library` table |
 | general.dupradar_intercept |  | REAL | Add a brief explanation of the field here. |
 | general.percent_rrna |  | REAL | Add a brief explanation of the field here. |
 | general.library |  | TEXT | Add a brief explanation of the field here. |
@@ -471,7 +503,7 @@ category.
 | Field | Purpose | Datatype | Description |
 |-------|---------|----------|-------------|
 | pk | primary key | INTEGER | autoincremented primary key |
-| sample_id | foreign key to sample | TEXT | References the "pk" field in the "sample" table |
+| library_id | foreign key| TEXT | References the `library_id` field in the `library` table |
 
 <details>
 <summary>Full Table Details</summary>
@@ -479,7 +511,7 @@ category.
 | Field | Purpose | Datatype | Description |
 |-------|---------|----------|-------------|
 | pk | primary key | INTEGER | autoincremented primary key |
-| sample_id | foreign key to sample | TEXT | References the "pk" field in the "sample" table |
+| library_id | foreign key| TEXT | References the `library_id` field in the `library` table |
 | exonic |  | INTEGER | raw counts of reads over exonic regions |
 | intronic |  | INTEGER | raw counts of reads over intronic regions |
 | intergenic |  | INTEGER | raw counts of reads over intergenic regions|
@@ -519,7 +551,7 @@ This table stores RSEM quantification QC information.
 | Field | Purpose | Datatype | Description |
 |-------|---------|----------|-------------|
 | pk | primary key | INTEGER | autoincremented primary key |
-| sample_id | foreign key to sample | TEXT | References the "pk" field in the "sample" table |
+| library_id | foreign key| TEXT | References the `library_id` field in the `library` table |
 
 <details>
 <summary>Full Table Details</summary>
@@ -527,7 +559,7 @@ This table stores RSEM quantification QC information.
 | Field | Purpose | Datatype | Description |
 |-------|---------|----------|-------------|
 | pk | primary key | INTEGER | autoincremented primary key |
-| sample_id | foreign key to sample | TEXT | References the "pk" field in the "sample" table |
+| library_id | foreign key| TEXT | References the `library_id` field in the `library` table |
 | aligned_uniquely_to_a_gene |  | INTEGER | RSEM determined unique alignment raw counts |
 | aligned_to_multiple_genes |  | INTEGER | RSEM determined multimap raw counts |
 | filtered_due_to_too_many_alignments |  | INTEGER | Reads not considered for the EM quantification due to 'too many' multimaps |
@@ -535,31 +567,7 @@ This table stores RSEM quantification QC information.
 
 </details>
 
-
-## rsem_quant 
-
-This table is a counterpart to the `fastq` table, but instead stores the 
-`dsg` path to the RSEM quantification files
-
-| Field | Purpose | Datatype | Description |
-|-------|---------|----------|-------------|
-| pk | primary key | INTEGER | autoincremented primary key |
-| sample_id | foreign key to sample | TEXT | References the "pk" field in the "sample" table |
-
-
-<details>
-<summary>Full Table Details</summary>
-
-| Field | Purpose | Datatype | Description |
-|-------|---------|----------|-------------|
-| pk | primary key | INTEGER | Add a brief explanation of the field here. |
-| sample_id | foreign key to sample | INTEGER | Add a brief explanation of the field here. |
-| rsem_isoform_quant |  | TEXT | Add a brief explanation of the field here. |
-
-</details>
-
-
-## sample 
+## library 
 
 This is a very important table. It essentially functions to assign a unique ID 
 to each actual *sample* (remember a sample might have as many as 6 fastq 
@@ -572,7 +580,7 @@ re-labelled with a different subject later on.
 
 | Field | Purpose | Datatype | Description |
 |-------|---------|----------|-------------|
-| pk | primary key | INTEGER | autoincremented primary key |
+| library_id | primary key | INTEGER | autoincremented primary key |
 | batch_id | foreign key to batch | INTEGER | References "pk" of the batch table |
 
 <details>
@@ -580,13 +588,11 @@ re-labelled with a different subject later on.
 
 | Field | Purpose | Datatype | Description |
 |-------|---------|----------|-------------|
-| pk | primary key | INTEGER | autoincremented primary key |
+| library_id | primary key | INTEGER | autoincremented primary key |
 | fastq_id | foreign key to fastq | TEXT | the ORIGINAL LLFS ID which is extracted from the fastq filename |
 | visit |  | TEXT | The visit, extracted from the fastqfilename |
 | batch_id | foreign key to batch | INTEGER | References "pk" of the batch table |
-| mislabelled |  | BOOLEAN | TRUE (1) if upon comparing the RNA variants to the corresponding subject's WGS data, the RNA sampl was obviously mislabelled. BUT, the actual match could not be found (not all RNA samples have WGS data). Else FALSE (0) |
-| suspicious_sex |  | BOOLEAN | TRUE (1) if the sex expression is obviously opposite of what is labelled. A sample will 
-be TRUE if it a) showed suspicious sex characteristics given its label and b) did not have data in the WGS data to do a comparison|
+| suspicious_sex |  | BOOLEAN | TRUE (1) if the sex expression is obviously opposite of what is labelled. NOTE that this is a property of the library, not the `fastq_id`. This is applied only __after__ doing the WGS and other relabeling and represents a sample which is mislabeled by sex and for which a correct relabeing cannot be found.|
 
 </details>
 
@@ -601,7 +607,7 @@ PCA results.
 | Field | Purpose | Datatype | Description |
 |-------|---------|----------|-------------|
 | pk | primary key | INTEGER | autoincremented primary key |
-| sample_id | foreign key to sample | TEXT | References the "pk" field in the "sample" table |
+| library_id | foreign key| TEXT | References the `library_id` field in the `library` table |
 
 <details>
 <summary>Full Table Details</summary>
@@ -609,7 +615,7 @@ PCA results.
 | Field | Purpose | Datatype | Description |
 |-------|---------|----------|-------------|
 | pk | primary key | INTEGER | autoincremented primary key |
-| sample_id | foreign key to sample | TEXT | References the "pk" field in the "sample" table |
+| library_id | foreign key| TEXT | References the `library_id` field in the `library` table |
 | chromosome_x |  | INTEGER | raw counts of reads over the X chromosome |
 | chromosome_y |  | INTEGER | raw counts of reads over the Y chromosome |
 
@@ -658,7 +664,7 @@ sample variants
 | Field | Purpose | Datatype | Description |
 |-------|---------|----------|-------------|
 | pk | primary key | INTEGER | autoincremented primary key |
-| sample_id | foreign key to sample | INTEGER | References "pk" of sample table |
+| library_id | foreign key| INTEGER | References "pk" of library table |
 | dna_subject |  | INTEGER | References "subject" of whatdatall table |
 
 <details>
@@ -667,7 +673,7 @@ sample variants
 | Field | Purpose | Datatype | Description |
 |-------|---------|----------|-------------|
 | pk | primary key | INTEGER | autoincremented primary key |
-| sample_id | foreign key to sample | INTEGER | References "pk" of sample table |
+| library_id | foreign key| INTEGER | References "pk" of library table |
 | dna_subject |  | INTEGER | References "subject" of whatdatall table |
 | chr |  | TEXT | chromosome over which the comparison was conducted. Note that I frequently use chr21 b/c it is shorter. I have done comparisons and found that there is no loss of specificity by using a smaller chromosome |
 | total_variants |  | INTEGER | Total number of overlapping variants between the RNA and DNA |

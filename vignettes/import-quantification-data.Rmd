@@ -15,7 +15,9 @@ knitr::opts_chunk$set(
 )
 ```
 
-# Introduction
+# Importing Quantification Data
+
+## Introduction
 
 This vignette describes how to take the RSEM quantification, files which are 
 output by the nf-core/rnaseq pipeline, and collect them into a `DeseqDataSet` 
@@ -26,54 +28,18 @@ put this data, even if you do not plan to use `DESeq`.
 Note that after creating the samplesheet, you should use it to run the pipeline, 
 but also to update the RNASeq database with the new samples.
 
-```{r txi_import}
-library(tidyverse)
-library(tximport)
-library(vroom)
-library(here)
-library(llfsRnaseq)
+See the script
+[R/import_quantification_data.R](../R/import_quantification_data.R), which
+includes an example of using the package rslurm to easily run the data
+aggregation on a cluster with SLURM.
 
-TX_QUANTS = FALSE
-WRITE = FALSE
+## combining txi objects
 
-quant_df = read_csv(here('llfs_rnaseq_data/quant_lookup.csv'))
+Combining txi objects (eg, to aggregate a batch when it comes in and combine 
+it with the larger set), see
+[R/combine_txi_objects.R](../R/combine_txi_objects.R)
 
-isoform_list = setNames(quant_df$isoform_file,
-                      paste0('sample_',quant_df$sample_id))
-
-gene_list = setNames(quant_df$gene_file,
-                     paste0('sample_',quant_df$sample_id))
-
-if(TX_QUANTS){
-  txi_isoform = tximport(files = isoform_list,
-                     type='rsem',
-                     txIn = TRUE,
-                     txOut = TRUE,
-                     importer = vroom)
-} else{
-  # NOTE: See the bottom of this document for how this is created
-  tx2gene = vroom(here("llfs_rnaseq_data/gencode38_tx2gene_20210919.csv"))
-  # note that you could use the gene level data to import, in which case
-  # `txIn = FALSE`, but I ran into an error with zero count genes this way.
-  # importing from isoform and aggregating to gene works, and it is the way
-  # I have done it up to this point.
-  # See discussion here:
-  # https://bioinformatics.stackexchange.com/questions/13521/deseqdatasetfromtximport-alllengths-0-is-not-true
-  txi_gene = tximport(files = isoform_list,
-                   type='rsem',
-                   txIn=TRUE,
-                   txOut=FALSE,
-                   tx2gene = tx2gene,
-                   importer = vroom)
-}
-
-
-if(WRITE){
-  write_rds(txi, file.path(here('data'), paste0(NEW_TXI_NAME, ".rds")))
-}
-```
-
-# Creating a DDS object
+## Creating a DDS object
 
 ```{r create_dds}
 
@@ -108,7 +74,7 @@ if(TX){
 }
 
 meta_df = read_csv(here("llfs_rnaseq_data/rnaseq_metadata_20230713.csv")) %>%
-  mutate(count_headers = paste0('sample_', sample_id),
+  mutate(count_headers = paste0('sample_', library_id),
          sex = as.character(sex)) %>%
   replace_na(list(sex='control')) %>%
   mutate(batch_alias = factor(batch_alias),
@@ -168,9 +134,9 @@ if(WRITE){
 
 ```
 
-# Misc
+## Misc
 
-## Create tx2gene
+### Create tx2gene
 
 The transcript to gene file is just as it sounds -- a map from transcript
 identifiers to gene identifiers. This is used by tximport.

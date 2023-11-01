@@ -6,7 +6,7 @@
 #' @param x_pc which PC to plot on the x axis
 #' @param y_pc which PC to plot on the Y axis
 #' @param meta sample metadata. Rows should be in same order as counts
-#' @param plate_colors vector of colors for each batch_id
+#' @param plate_colors vector of colors for each batch
 #' @param plot_title title of plot
 #' @param pc_levels a vector of PC levels, eg 1,3,6,2,4,5 which will control
 #'   the order which the PCs are plotted
@@ -22,13 +22,13 @@
 #'
 #' @export
 before_after_pca_and_plate_regression_plots <- function(counts,
-                                    pca_basis_data,
-                                    x_pc,
-                                    y_pc,
-                                    meta,
-                                    plate_colors,
-                                    plot_title,
-                                    pc_levels = NA) {
+                                                        pca_basis_data,
+                                                        x_pc,
+                                                        y_pc,
+                                                        meta,
+                                                        plate_colors,
+                                                        plot_title,
+                                                        pc_levels = NA) {
 
   counts_scaled_by_pca_basis <- scale(
     t(counts),
@@ -42,17 +42,17 @@ before_after_pca_and_plate_regression_plots <- function(counts,
   )
 
   counts_projected_onto_pca_basis_df <-
-    dplyr::as_tibble(counts_projected_onto_pca_basis, rownames = "sample") %>%
-    plyr::mutate(sample_id = as.numeric(stringr::str_remove(sample, "sample_"))) %>%
-    dplyr::select(sample_id, dplyr::all_of(paste0("PC", seq(1, 10)))) %>%
+    dplyr::as_tibble(counts_projected_onto_pca_basis, rownames = "library") %>%
+    plyr::mutate(library_id = as.numeric(stringr::str_remove(library, "library_"))) %>%
+    dplyr::select(library_id, dplyr::all_of(paste0("PC", seq(1, 10)))) %>%
     dplyr::left_join(meta)
 
   counts_projects_onto_pca_basis_pcaplot <- counts_projected_onto_pca_basis_df %>%
-    dplyr::filter(!is.na(batch_id)) %>%
-    dplyr::mutate(batch_id = as.factor(batch_id)) %>%
-    ggplot(aes_string(x_pc, y_pc, color = "batch_id")) +
+    dplyr::filter(!is.na(batch)) %>%
+    dplyr::mutate(batch = as.factor(batch)) %>%
+    ggplot(aes_string(x_pc, y_pc, color = "batch")) +
     geom_point(alpha = .5, size = 3) +
-    stat_ellipse(aes(linetype = batch_id)) +
+    stat_ellipse(aes(linetype = batch)) +
     # scale_linetype_manual(values = c(0,0,0,0,1,0,0,0,0,1,0)) +
     scale_color_manual(values = plate_colors) +
     ylim(-70, 70) +
@@ -65,7 +65,7 @@ before_after_pca_and_plate_regression_plots <- function(counts,
 
   plate_predicts_pc_rsquared <- data_for_lm %>%
     dplyr::select(dplyr::all_of(paste0("PC", seq(1, 10)))) %>% # exclude outcome, leave only predictors
-    purrr::map(~ stats::lm(.x ~ data_for_lm$batch_id, data = data_for_lm)) %>%
+    purrr::map(~ stats::lm(.x ~ data_for_lm$batch, data = data_for_lm)) %>%
     purrr::map(summary) %>%
     purrr::map_dbl("r.squared") %>%
     broom::tidy() %>%

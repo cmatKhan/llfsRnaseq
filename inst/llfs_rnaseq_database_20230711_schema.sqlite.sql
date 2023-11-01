@@ -16,16 +16,16 @@ CREATE TABLE IF NOT EXISTS "batch" (
 DROP TABLE IF EXISTS "corrected_sample";
 CREATE TABLE IF NOT EXISTS "corrected_sample" (
 	"pk"	INTEGER,
-	"sample_id"	TEXT NOT NULL UNIQUE,
+	"library_id"	TEXT NOT NULL UNIQUE,
 	"whatdatall_id"	TEXT NOT NULL,
 	"reason"	TEXT NOT NULL,
 	PRIMARY KEY("pk" AUTOINCREMENT),
-	FOREIGN KEY("sample_id") REFERENCES "sample"("pk")
+	FOREIGN KEY("library_id") REFERENCES "sample"("pk")
 );
 DROP TABLE IF EXISTS "fastq";
 CREATE TABLE IF NOT EXISTS "fastq" (
 	"pk"	INTEGER,
-	"sample_id"	INTEGER,
+	"library_id"	INTEGER,
 	"fastq_1"	TEXT NOT NULL,
 	"fastq_2"	TEXT NOT NULL,
 	"dsg_location"	TEXT,
@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS "fastq" (
 	"type"	TEXT NOT NULL,
 	"notes"	TEXT DEFAULT 'none',
 	PRIMARY KEY("pk" AUTOINCREMENT),
-	FOREIGN KEY("sample_id") REFERENCES "sample"
+	FOREIGN KEY("library_id") REFERENCES "sample"
 );
 DROP TABLE IF EXISTS "id_correction";
 CREATE TABLE IF NOT EXISTS "id_correction" (
@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS "id_correction" (
 DROP TABLE IF EXISTS "multiqc_general";
 CREATE TABLE IF NOT EXISTS "multiqc_general" (
 	"pk"	INTEGER,
-	"sample_id"	INTEGER,
+	"library_id"	INTEGER,
 	"general.dupradar_intercept"	REAL,
 	"general.percent_rrna"	REAL,
 	"general.library"	TEXT,
@@ -178,18 +178,18 @@ CREATE TABLE IF NOT EXISTS "multiqc_general" (
 	"general.quality_trimmed"	INTEGER,
 	"general.bp_written"	REAL,
 	"general.percent_trimmed"	REAL,
-	FOREIGN KEY("sample_id") REFERENCES "sample"("pk"),
+	FOREIGN KEY("library_id") REFERENCES "sample"("pk"),
 	PRIMARY KEY("pk" AUTOINCREMENT)
 );
 DROP TABLE IF EXISTS "qualimap_genomic_origin";
 CREATE TABLE IF NOT EXISTS "qualimap_genomic_origin" (
 	"pk"	INTEGER,
-	"sample_id"	TEXT NOT NULL,
+	"library_id"	TEXT NOT NULL,
 	"exonic"	INTEGER NOT NULL,
 	"intronic"	INTEGER NOT NULL,
 	"intergenic"	INTEGER NOT NULL,
 	PRIMARY KEY("pk" AUTOINCREMENT),
-	FOREIGN KEY("sample_id") REFERENCES "sample"("pk")
+	FOREIGN KEY("library_id") REFERENCES "sample"("pk")
 );
 DROP TABLE IF EXISTS "remove_ids";
 CREATE TABLE IF NOT EXISTS "remove_ids" (
@@ -202,7 +202,7 @@ CREATE TABLE IF NOT EXISTS "remove_ids" (
 DROP TABLE IF EXISTS "rsem_assignment_plot";
 CREATE TABLE IF NOT EXISTS "rsem_assignment_plot" (
 	"pk"	INTEGER,
-	"sample_id"	TEXT NOT NULL,
+	"library_id"	TEXT NOT NULL,
 	"aligned_uniquely_to_a_gene"	INTEGER NOT NULL,
 	"aligned_to_multiple_genes"	INTEGER NOT NULL,
 	"filtered_due_to_too_many_alignments"	INTEGER NOT NULL,
@@ -212,7 +212,7 @@ CREATE TABLE IF NOT EXISTS "rsem_assignment_plot" (
 DROP TABLE IF EXISTS "rsem_quant";
 CREATE TABLE IF NOT EXISTS "rsem_quant" (
 	"pk"	INTEGER,
-	"sample_id"	INTEGER,
+	"library_id"	INTEGER,
 	"rsem_isoform_quant"	TEXT NOT NULL,
 	PRIMARY KEY("pk" AUTOINCREMENT),
 	FOREIGN KEY("pk") REFERENCES "fastq"("pk")
@@ -230,13 +230,13 @@ CREATE TABLE IF NOT EXISTS "sample" (
 DROP TABLE IF EXISTS "samtools_idxstats_xy_plot";
 CREATE TABLE IF NOT EXISTS "samtools_idxstats_xy_plot" (
 	"pk"	INTEGER,
-	"sample_id"	TEXT NOT NULL,
+	"library_id"	TEXT NOT NULL,
 	"chromosome_x"	INTEGER NOT NULL,
 	"chromosome_y"	INTEGER NOT NULL,
 	PRIMARY KEY("pk" AUTOINCREMENT)
 );
-DROP TABLE IF EXISTS "transfer_sample_ids";
-CREATE TABLE IF NOT EXISTS "transfer_sample_ids" (
+DROP TABLE IF EXISTS "transfer_library_ids";
+CREATE TABLE IF NOT EXISTS "transfer_library_ids" (
 	"pk"	INTEGER,
 	"fastq_id"	TEXT UNIQUE,
 	"whatdatall_id"	TEXT UNIQUE,
@@ -246,7 +246,7 @@ CREATE TABLE IF NOT EXISTS "transfer_sample_ids" (
 DROP TABLE IF EXISTS "wgs_compare";
 CREATE TABLE IF NOT EXISTS "wgs_compare" (
 	"pk"	INTEGER,
-	"sample_id"	INTEGER,
+	"library_id"	INTEGER,
 	"dna_subject"	INTEGER NOT NULL,
 	"chr"	TEXT NOT NULL,
 	"total_variants"	INTEGER NOT NULL,
@@ -269,7 +269,7 @@ DROP VIEW IF EXISTS "genomic_origin_view";
 CREATE VIEW genomic_origin_view AS
 SELECT 
     pk,
-    sample_id,
+    library_id,
     exonic,
     intronic,
     intergenic,
@@ -280,7 +280,7 @@ FROM
     qualimap_genomic_origin;
 DROP VIEW IF EXISTS "llfs_rnaseq_metadata";
 CREATE VIEW "llfs_rnaseq_metadata" AS 
-SELECT subquery.sample_id, 
+SELECT subquery.library_id, 
        subquery.batch_id, 
 	   subquery.batch_alias, 
 	   subquery.fastq_id, 
@@ -302,7 +302,7 @@ SELECT subquery.sample_id,
 	   genomic_origin_view.percent_intronic,
 	   genomic_origin_view.percent_intergenic
 FROM 
-    (SELECT sample.pk as sample_id,
+    (SELECT sample.pk as library_id,
 	        sample.fastq_id,
 			sample.visit,
 			sample.mislabelled,
@@ -312,18 +312,18 @@ FROM
 	   batch.pk AS batch_id,
 	   batch.batch_alias
 	FROM sample
-	LEFT JOIN corrected_sample ON sample.pk = corrected_sample.sample_id
+	LEFT JOIN corrected_sample ON sample.pk = corrected_sample.library_id
 	LEFT JOIN batch ON sample.batch_id = batch.pk
     ) AS subquery
 LEFT JOIN whatdatall ON subquery.corrected_id = whatdatall.id
-LEFT JOIN xy_ratio ON subquery.sample_id = xy_ratio.sample_id
-LEFT JOIN genomic_origin_view ON subquery.sample_id = genomic_origin_view.sample_id
+LEFT JOIN xy_ratio ON subquery.library_id = xy_ratio.library_id
+LEFT JOIN genomic_origin_view ON subquery.library_id = genomic_origin_view.library_id
 LEFT JOIN remove_ids ON whatdatall.id = remove_ids.id;
 DROP VIEW IF EXISTS "xy_ratio";
 CREATE VIEW xy_ratio AS
 SELECT 
     pk,
-    sample_id,
+    library_id,
     chromosome_x,
     chromosome_y,
     CAST(chromosome_y AS REAL) / CAST(chromosome_x AS REAL) AS y_x_ratio
@@ -338,23 +338,23 @@ CREATE INDEX IF NOT EXISTS "batch_index" ON "batch" (
 DROP INDEX IF EXISTS "corrected_sample_index";
 CREATE INDEX IF NOT EXISTS "corrected_sample_index" ON "corrected_sample" (
 	"pk",
-	"sample_id",
+	"library_id",
 	"whatdatall_id"
 );
 DROP INDEX IF EXISTS "fastq_index";
 CREATE INDEX IF NOT EXISTS "fastq_index" ON "fastq" (
 	"pk",
-	"sample_id"
+	"library_id"
 );
 DROP INDEX IF EXISTS "multiqc_general_index";
 CREATE INDEX IF NOT EXISTS "multiqc_general_index" ON "multiqc_general" (
 	"pk",
-	"sample_id"
+	"library_id"
 );
 DROP INDEX IF EXISTS "qualimap_genomic_origin_index";
 CREATE INDEX IF NOT EXISTS "qualimap_genomic_origin_index" ON "qualimap_genomic_origin" (
 	"pk",
-	"sample_id"
+	"library_id"
 );
 DROP INDEX IF EXISTS "remove_ids_index";
 CREATE INDEX IF NOT EXISTS "remove_ids_index" ON "remove_ids" (
@@ -364,7 +364,7 @@ CREATE INDEX IF NOT EXISTS "remove_ids_index" ON "remove_ids" (
 DROP INDEX IF EXISTS "rsem_assignment_plot_index";
 CREATE INDEX IF NOT EXISTS "rsem_assignment_plot_index" ON "rsem_assignment_plot" (
 	"pk",
-	"sample_id"
+	"library_id"
 );
 DROP INDEX IF EXISTS "sample_index";
 CREATE INDEX IF NOT EXISTS "sample_index" ON "sample" (
@@ -374,10 +374,10 @@ CREATE INDEX IF NOT EXISTS "sample_index" ON "sample" (
 DROP INDEX IF EXISTS "samtools_idxstats_xy_plot_index";
 CREATE INDEX IF NOT EXISTS "samtools_idxstats_xy_plot_index" ON "samtools_idxstats_xy_plot" (
 	"pk",
-	"sample_id"
+	"library_id"
 );
-DROP INDEX IF EXISTS "transfer_sample_ids_index";
-CREATE INDEX IF NOT EXISTS "transfer_sample_ids_index" ON "transfer_sample_ids" (
+DROP INDEX IF EXISTS "transfer_library_ids_index";
+CREATE INDEX IF NOT EXISTS "transfer_library_ids_index" ON "transfer_library_ids" (
 	"pk",
 	"fastq_id",
 	"whatdatall_id"
@@ -385,7 +385,7 @@ CREATE INDEX IF NOT EXISTS "transfer_sample_ids_index" ON "transfer_sample_ids" 
 DROP INDEX IF EXISTS "wgs_compare_index";
 CREATE INDEX IF NOT EXISTS "wgs_compare_index" ON "wgs_compare" (
 	"pk",
-	"sample_id",
+	"library_id",
 	"dna_subject"
 );
 DROP INDEX IF EXISTS "whatdatall_index";

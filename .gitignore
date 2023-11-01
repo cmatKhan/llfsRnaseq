@@ -9,3 +9,5 @@ llfs_rnaseq_data/*
 llfs_rnaseq_data_*/
 *.tar.gz
 *.csv
+tmp/*
+data/

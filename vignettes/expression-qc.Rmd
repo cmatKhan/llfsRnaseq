@@ -71,7 +71,7 @@ stopifnot(sum(rn7sl_filter) == 2)
 
 ```{r}
 expression_qc_df = tibble(
-  sample_id = dds$sample_id,
+  library_id = dds$library_id,
   library_size = colSums(counts(dds)),
   protein_coding_total = colSums(counts(dds[rowRanges(dds)$gene_type=='protein_coding', ])),
   hemoglobin_counts = colSums(counts(dds[hemoglobin_gene_filter,])),

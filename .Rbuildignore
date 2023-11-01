@@ -13,3 +13,4 @@ llfs_rnaseq_data/*
 plots/
 inst/CITATION.bib
 CITATION.cff
+tmp/

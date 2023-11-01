@@ -17,7 +17,8 @@ knitr::opts_chunk$set(
 
 # Introduction
 
-The goal of this exercise is to call variants on the RNAseq samples. These are 
+The goal is to call variants on the RNAseq librarys such that these variant
+loci can be used to match RNA librarys to WGS librarys. These are 
 the papers/resources I used to get an idea of what the state of the art of 
 calling variants from bulk RNAseq:
 
@@ -37,15 +38,6 @@ as hopefully a spur to pursue these methods:
 3. [Assessing allele-specific expression across multiple tissues from RNA-seq read data](https://academic.oup.com/bioinformatics/article/31/15/2497/187677?login=false)
 4. [Leveraging allelic imbalance to refine fine-mapping for eQTL studies ](https://pubmed.ncbi.nlm.nih.gov/31834882/)
 
-Initially, the goal of the variant calling on the LLFS data is to find and 
-correct sample mislabels. The resources above, and my own trial and error 
-experimentation, show that it is indeed entirely reasonable to call variants 
-from the RNAseq samples and, where the same (labelled) subject has WGS data, 
-compare the RNA vs DNA variants. It turns out that doing this 
-on only one chromosome -- any autosome will do, and I frequently use chr21 -- 
-returns more than enough variant sites such that there is no loss of 
-specificity compared to comparing variants across the entire genome.  
-
 # Procedure
 
 I use a modified version of the nf-core/rnavar RNA variant calling pipeline, 
@@ -56,11 +48,38 @@ output by the RNAseq pipeline as opposed to starting from the alignment step.
 I process these in batches of no more than 30 -- due to the way nextflow 
 handles tracking intermediate data, and the number of times the bam files have 
 to be manipulated, and therefore copied, the size of the `work` directory gets 
-very large, upwards of 10 terabytes.
+very large with smaller numbers of librarys.
 
-1. Create an input samplesheet. An example of the `bam` input samplesheet 
+1. Create an input librarysheet. An example of the `bam` input librarysheet 
    can be found 
-   [here](https://github.com/cmatKhan/llfsRnaseq/blob/main/inst/20230519.csv)
+   [here](https://github.com/cmatKhan/llfsRnaseq/blob/main/inst/20230519.csv).
+   The rna variant calling work directory is large because the bams are copied
+   multiple times as they are prepared for variant calling. I submit in sets
+   of more more than 30, which ends up producing ~3 TB of intermediate data.
+   Here is an example of creating librarysheets:
+  
+```{r}
+library(tidyverse)
+
+set = '20230727'
+
+bam_list = list.files(paste0('/mnt/scratch/llfs_variant_calling/data/', set), '*bam$', 
+                      full.names = TRUE)
+df = tibble(
+  library = str_remove(basename(bam_list), '.markdup.sorted.bam'),
+  fastq_1 = "",
+  fastq_2 = "",
+  bam = str_replace(bam_list, "/mnt/scratch", "/scratch/mblab/chasem")
+)
+
+file_path = paste0(
+  "/mnt/scratch/llfs_variant_calling/librarysheet/",
+  set,
+  ".csv"
+)
+
+write_csv(df, file_path)
+```
 
 2. Run the pipeline.
     - First, [clone the repo]() and make sure that you switch to the `bam_input` 
@@ -75,20 +94,208 @@ very large, upwards of 10 terabytes.
    whatever long term storage you're using (brentlab HTCF users, I use LTOS),
    make sure you tell the copy program to follow the symlinks and grab the 
    actual file, for instance `--copy-links` using `rsync` or `-F` using `s3cmd`.
-4. Unless you're doing 30 or less samples, you'll need to repeat this procedure 
+4. Unless you're doing 30 or less librarys, you'll need to repeat this procedure 
    in batches of ~30.
-5. At this point, I use  
-   [the scripts in this R project](https://github.com/cmatKhan/llfs_rnaseq_variants) 
-   to convert the `vcf` files to `gds` files, and then use the WGS dna `gds` 
-   files to extract and compare variants (also with scripts in that repo).
-6. Finally, I add the result of at least the direct comparison to the 
-   `llfs_rnaseq_database`. I haven't yet made a table to track the summarized 
-   results of the all-by-all comparisons, where they are necessary for the 
-   obvious mislabels.
    
+## Labelled library ("same same") comparisons
+
+I first convert the RNA VCF files to GDS files and compare the variants on 
+chr21 to the variants on chr21 on the DNA library of the same label. I use  
+[the scripts in this R project](https://github.com/cmatKhan/llfs_rnaseq_variants) 
+to convert the `vcf` files to `gds` files, and then use the WGS dna `gds` 
+files to extract and compare variants (also with scripts in that repo). The 
+sbatch scripts and R scripts that I use are in the repo linked above.
+   
+## All by all comparisons
+
+For librarys with more than 100 high quality variant sites that can be compared
+which have a 'match ratio', meaning total number of matching sites / total 
+variant sites in the RNA for which good data exists in the DNA, greater than 
+94%, we consider these a 'confirmed label'. However, for those that do not 
+meet this criteria, we use the following steps to choose librarys to compare 
+against all 4556 WGS librarys.
+
+1. First, split the same-labelled comparison into a set of librarys with less than 
+100 total_variants and those with more on chr21.
+
+2. For librarys with greater than or equal to 100 total_variants, if the match
+ratio is less than .94, those librarys are compared against all 4556 (minus one)
+other WGS librarys on chr21.
+
+3. For librarys with a match greater than .9, which is greater than the 
+original label, then we do a chi-squared test. If the best match_ratio is
+significantly better than the same label AND if the best match is significantly
+better than the second best relabel, then we re-label the library
+
+4. For librarys with less than 100 total variant sites, these will be compared
+along chr6 to increase the number of RNA variant sites over which there is 
+WGS data. Note that we may choose a different chromosome, likely closer to chr1, 
+to increase the number of variant sites with good data if necessary. chr6 is 
+chosen becuase it has about half the gene density of chr1 and generally 
+provides at least 100 variant sites for all libraries with less than .08 
+intergenic reads.
+
+## Compiling and parsing the results
+
+The first step for either the same-same comparison or the all-by-all comparison
+is to read in the data. If this is the same-same comparison, then this 
+dataframe should be added to the wgs_compare table in the database
+
+```{r}
+library(tidyverse)
+library(RSQLite)
+library(here)
+
+con = dbConnect(RSQLite::SQLite(),
+                         here('llfs_rnaseq_data/llfs_rnaseq_database.sqlite'))
+
+library_tbl = tbl(con,'library') %>%
+  collect()
+
+collected_metrics = Sys.glob('/mnt/scratch/llfs_rna_dna_compare_test/all_by_all_batch_20231016/*/compiled_metrics.csv')
+
+# note: these could be done in such a way that they are collected by 'batch'
+# and then the batch_id could be used to join to library
+#names(chr6_collected_metrics) = basename(dirname(chr6_collected_metrics))
+
+collected_metrics = '/mnt/scratch/llfs_rna_dna_compare_test/makeup_librarys/compiled_metrics.csv'
+
+collected_metrics_df_raw = map(collected_metrics,read_csv) %>%
+  bind_rows(.id='batch_id') %>%
+  mutate(batch_id = as.integer(batch_id))
+
+collected_metrics_df = collected_metrics_df_raw %>%
+    select(batch_id,
+           rna_sample,
+           rna_visit,
+           dna_sample,
+           chr,
+           overlap_fltr,
+           n_match_fltr,
+           homo_expr_cand_fltr) %>%
+    dplyr::rename(visit=rna_visit) %>%
+    dplyr::rename(total_variants=overlap_fltr,
+                  matching_variants=n_match_fltr,
+                  homo_expr_cand=homo_expr_cand_fltr) %>%
+    mutate(match_ratio=matching_variants/total_variants,
+           rna_library = as.character(rna_library),
+           visit = as.character(visit)) %>%
+  left_join(select(whatdatall_tbl,id,subject) %>%
+              mutate(subject=as.character(subject)), 
+            by=c('rna_library'='subject')) %>%
+  mutate(rna_library = ifelse(!is.na(id), id, rna_library)) %>%
+    left_join(select(library_tbl, pk,fastq_id,visit,batch_id), 
+              by = c('rna_library' = 'fastq_id', 
+                     'visit', 
+                     'batch_id')) %>%
+  select(-id) %>%
+  dplyr::rename(library_id=pk,
+                dna_subject=dna_sample) %>%
+  select(library_id,dna_subject,chr,total_variants,
+         matching_variants,homo_expr_cand, match_ratio)
+
+# dbApppend(con,'wgs_compare',collected_metrics)
+```
+
+At this point, we would filter for librarys with less than .94 match ratio or
+less than 100 total variants, removing librarys that have percent_intergenic 
+greater than .08, and submit the all-by-all comparison. Once that is finished,
+the data is parsed into a dataframe just as above. It is then summarized like
+so:
+
+```{r}
+whatdatall_tbl = tbl(con,'whatdatall') %>%
+  collect()
+
+library_tbl = tbl(con,'library') %>%
+  collect() %>%
+  mutate(library_id = as.character(library_id))
+
+all_by_all_summary = collected_metrics_df %>%
+  left_join(select(library_tbl,library_id,fastq_id)) %>%
+  left_join(select(whatdatall_tbl,id,subject) %>%
+              mutate(id = as.character(id)),
+            by = c('fastq_id'='id')) %>%
+  dplyr::rename(rna_subject=subject) %>% 
+  parse_all_by_all_compiled_results()
+
+# dbAppendTable(con,'full_wgs_compare', all_by_all_summary)
+```
+
+auditing the results
+
+```{r}
+library(tidyverse)
+library(RSQLite)
+library(here)
+
+con = dbConnect(RSQLite::SQLite(),
+                here('llfs_rnaseq_data/llfs_rnaseq_database.sqlite'))
+
+wgs_subjects = read_csv('/mnt/scratch/llfs_rna_dna_compare_test/lookups/wgs_dna_subject_ids.txt',
+                       col_names = FALSE)$X1
+
+whatdatall_tbl = 
+  tbl(con,'whatdatall') %>%
+  collect() %>%
+  mutate(id=as.character(id))
+
+corrected_sample_tbl = 
+  tbl(con, 'corrected_sample') %>%
+  collect() %>%
+  filter(reason %in% c('v1_transfer', 'phantom', 'manifest_typo')) %>%
+  select(-pk)
+
+genomic_origin_tbl = 
+  tbl(con,'genomic_origin_view') %>%
+  collect()
+
+wgs_compare_tbl = 
+  tbl(con,'wgs_compare') %>%
+  collect()
+
+library_tbl =
+  tbl(con,'library') %>% 
+  collect() %>%
+  left_join(select(corrected_sample_tbl,library_id,whatdatall_id,reason)) %>%
+  filter(is.na(reason) | reason %in% c('v1_transfer', 'manifest_typo')) %>%
+  mutate(fastq_id=ifelse(!is.na(whatdatall_id),whatdatall_id,fastq_id)) %>%
+  select(-c(whatdatall_id,reason)) %>%
+  left_join(select(whatdatall_tbl,id,subject), by = c('fastq_id'='id')) %>%
+  filter(str_detect(fastq_id,regex('pool',ignore_case=TRUE),negate=TRUE)) %>%
+  filter(subject %in% wgs_subjects) %>%
+  left_join(select(genomic_origin_tbl,library_id,percent_intergenic)) %>%
+  filter(percent_intergenic <0.08)
+
+stopifnot(length(setdiff(library_tbl$library_id,
+                         wgs_compare_tbl$library_id))==0)
+
+wgs_compare_potential_mislabels = 
+  wgs_compare_tbl %>%
+  filter(total_variants < 100 | match_ratio < 0.94) %>%
+  filter(library_id %in%
+           (genomic_origin_tbl %>% 
+           filter(percent_intergenic < 0.08) %>% 
+           pull(library_id))) %>%
+  filter(library_id %in% library_tbl$library_id)
+
+full_wgs_compare_tbl = 
+  tbl(con,'full_wgs_compare') %>%
+  collect()
+
+setdiff(wgs_compare_potential_mislabels$library_id,
+        full_wgs_compare_tbl$library_id)
+
+
+
+```
+
+
+
+
 A work in progress is taking all of the gvcf files 
 (the modified nf-core/rnavar pipeline outputs put vcf and gvcf files), 
 combining them, and then using hte GATK joint variant caller. Doing this would 
 allow the calculation of a kinship matrix, which may help further confirm the 
 re-labelling, and also possibly identify and hopefully provide evidence for 
-re-labelling mislabeled samples which do not have WGS data.
+re-labelling mislabeled librarys which do not have WGS data.

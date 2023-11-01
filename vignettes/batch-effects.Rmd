@@ -88,7 +88,7 @@ metadata = dds %>%
 dds_control = dds[, dds$sex=='control' |( !is.na(dds$relabel_reason) & dds$relabel_reason == 'phantom')]
 dds_control$purpose = 'control'
 
-dds_experiment = dds[,!dds$sample_id %in% dds_control$sample_id]
+dds_experiment = dds[,!dds$library_id %in% dds_control$library_id]
 dds_experiment$purpose = 'experiment'
 
 dedup_df = dds_experiment %>%
@@ -98,7 +98,7 @@ dedup_df = dds_experiment %>%
   filter(percent_intergenic == min(percent_intergenic)) %>%
   ungroup()
 
-dedup_dds = cbind(dds_control, dds_experiment[,dds_experiment$sample_id %in% dedup_df$sample_id])
+dedup_dds = cbind(dds_control, dds_experiment[,dds_experiment$library_id %in% dedup_df$library_id])
 
 ```
 
@@ -266,8 +266,8 @@ plate_effect_removed_projection =
 
 removed_effect_y_df = as_tibble(plate_effect_removed_projection, 
                                 rownames = 'sample') %>%
-  mutate(sample_id = as.numeric(str_remove(sample, "sample_"))) %>%
-  dplyr::select(sample_id, all_of(paste0("PC", seq(1,10)))) %>%
+  mutate(library_id = as.numeric(str_remove(sample, "sample_"))) %>%
+  dplyr::select(library_id, all_of(paste0("PC", seq(1,10)))) %>%
   left_join(as_tibble(colData(expr_fltr_passing_samples)))
 ```
 

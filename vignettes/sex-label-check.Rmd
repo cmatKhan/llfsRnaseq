@@ -43,10 +43,10 @@ library(llfsRnaseq)
 # set ggplot global options
 theme_set(theme_minimal())
 theme_update(text = element_text(size=20),
-             panel.border = element_rect(colour = "black", fill=NA, size=1))
+             panel.border = element_rect(colour = "black", fill=NA, linewidth=1))
 
 
-DDS_RDS_PATH = here("llfs_rnaseq_data/dds_20220713_gene.rds")
+DDS_RDS_PATH = "/scratch/mblab/chasem/data/dds_gene_legal_20231023_final.rds"
 
 # remove data objects which are not used after a given chunk
 CLEAN_UP = TRUE
@@ -59,19 +59,19 @@ WRITE_OUT = FALSE
 qc_datasets = sex_mislabel_setup(DDS_RDS_PATH, .015, 3)
 
 
-slope=3
+slope=3.5
 intercept=0
 
 suspicious_samples_data =
   top_500_pca_for_sex_mislabels(qc_datasets$raw,
                                 slope,
                                 intercept,
-                                inferred_sex_direction = 'down')
+                                inferred_sex_direction = 'up')
 ```
 
 ```{r}
 pca_sex_full = suspicious_samples_data %>%
-  filter(relabel_reason != 'phantom' | is.na(relabel_reason), sex !='control') %>%
+  filter(purpose == 'experiment') %>%
     ggplot(aes(PC1, PC2, 
                color = sex,
                key = subject,
@@ -84,7 +84,7 @@ pca_sex_full = suspicious_samples_data %>%
       scale_size_manual(values = c('TRUE' = 5, 'FALSE' = 1)) +
       scale_color_manual(values = c("1" = "#B3589A",
                                     "2"="#9BBF85",
-                                    "control" = "#F4A000"))
+                                    "0" = "#F4A000"))
 
 pca_sex_full
 
@@ -98,10 +98,10 @@ pca_sex_full
 ```{r pcaplot_detail}
 
 pca_sex_suspicious_labelled = suspicious_samples_data %>%
-  filter(inferred_sex_mislabel, sex != 'control') %>%
+  filter(inferred_sex_mislabel, sex != 0) %>%
   ggplot(aes(PC1, PC2,
              color = sex,
-             label = ifelse(inferred_sex_mislabel & sex !='control', 
+             label = ifelse(inferred_sex_mislabel & sex != 0, 
                             paste(as.character(subject), 
                                   as.character(visit), 
                                   sep="_"), NA))) +
@@ -156,28 +156,42 @@ re-labelled.
 ## sex 1 suspicious samples
 ```{r}
 sex_1_suspicious_samples = suspicious_samples_data %>%
-  filter(inferred_sex_mislabel | suspicious_sex, sex != 'control', inferred_sex == 1) %>%
-  select(sample_id, fastq_id, subject,visit,batch_alias,sex,
-         inferred_sex,suspicious_sex,mislabelled,
-         relabel_reason, sample_notes)
+  filter(inferred_sex_mislabel, inferred_sex == 1, sex !=0) %>%
+  select(library_id, subject,visit,batch,sex,
+         inferred_sex,suspicious_sex, mislabel,relabel,notes)
 ```
 
 ```{r example_sex1_mislabels, include=FALSE, eval=TRUE}
-llfsRnaseq::pca_sex_qc$sex_1_suspicious_samples
+#llfsRnaseq::pca_sex_qc$sex_1_suspicious_samples
+sex_1_suspicious_samples
+
+sex_1_suspicious_samples %>% 
+  left_join(llfsRnaseq::pca_sex_qc$sex_1_suspicious_samples %>% 
+              select(sample_id) %>% 
+              dplyr::rename(library_id=sample_id) %>% 
+              mutate(prev_ident = TRUE, library_id=paste0('library_', library_id))) %>% 
+  View()
 ```
 
 
 ## sex 2 suspicious samples
 ```{r}
 sex_2_suspicious_samples = suspicious_samples_data %>%
-  filter(inferred_sex_mislabel | suspicious_sex, sex != 'control', inferred_sex == 2) %>%
-  select(sample_id, fastq_id, subject,visit,batch_alias,
-         sex,inferred_sex,suspicious_sex,mislabelled,
-         relabel_reason, sample_notes)
+  filter(inferred_sex_mislabel, inferred_sex == 2, sex !=0) %>%
+  select(library_id, subject,visit,batch,
+         sex,inferred_sex,suspicious_sex,mislabel,
+         relabel, notes)
 ```
 
 ```{r example_sex2_mislabels, include=FALSE, eval=TRUE}
-llfsRnaseq::pca_sex_qc$sex_2_suspicious_samples
+sex_2_suspicious_samples %>% 
+  left_join(llfsRnaseq::pca_sex_qc$sex_2_suspicious_samples %>% 
+              select(sample_id) %>% 
+              dplyr::rename(library_id=sample_id) %>% 
+              mutate(prev_ident = TRUE,
+                     library_id=paste0('library_',
+                                       library_id))) %>% 
+  View()
 ```
 
 
@@ -190,5 +204,4 @@ llfsRnaseq::pca_sex_qc$sex_2_suspicious_samples
 #   sex_2_suspicious_samples = sex_2_suspicious_samples)
 # usethis::use_data(pca_sex_qc,overwrite = TRUE)
 ```
-
 

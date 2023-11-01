@@ -35,14 +35,14 @@ library(here)
 # set environmental variables
 ## set to false to use gene level quantification, true to use
 ## tx level quantification
-TX_QUANTS = TRUE 
+TX_QUANTS = TRUE
 ## determines whether data is written to the project data directory
-WRITE = TRUE 
+WRITE = TRUE
 
 # read in data ----------------------------------------------------------------
 dds_list = list(
-  gene = here(here("llfs_rnaseq_data/dds_20230717_gene.rds")),
-  tx   = here(here("llfs_rnaseq_data/dds_20230717_tx.rds"))
+  gene = here("llfs_rnaseq_data/dds_gene_20231023.rds"),
+  tx   = here("llfs_rnaseq_data/dds_tx_20231023.rds")
 )
 
 # note, clear out any design -- it isn't necessary for the manipulations below.
@@ -51,100 +51,183 @@ dds_list = list(
 if(TX_QUANTS){
   dds_full = readRDS(dds_list$tx)
   design(dds_full) = ~1
+  dds_full$count_headers = paste0('library_',dds_full$library_id)
+  colnames(dds_full) = dds_full$count_headers
 } else {
   dds_full = readRDS(dds_list$gene)
   design(dds_full) = ~1
+  dds_full$count_headers = paste0('library_',dds_full$library_id)
+  colnames(dds_full) = dds_full$count_headers
 }
-```
-
-## Some sanity checks
-
-```{r}
-# some checks on the metadata -------------------------------------------------
-## ensure that there are no mislabel TRUE that have been relabelled already
-stopifnot(ncol(dds_full[,!is.na(dds_full$relabel_reason) & 
-                          dds_full$mislabel]) == 0)
-
-stopifnot(unique(dds_full$legal) == 'yes')
-```
-
-## Rename the count columns
-
-```{r}
-colnames(dds_full) = paste("subject", 
-                            dds_full$subject, 
-                            "visit", 
-                            dds_full$visit,
-                            sep="_")
 ```
 
 ## Next, split the dds object into `control` and `experiment` sets
 
-These are as they sound -- the 'pool' and 'phantom' control samples are 
-separated from the experimental samples. The control set is not exported 
-from the `dds` object.
+```{r}
+# ensure that all samples are ones for which there is legal permission
+stopifnot(unique(dds_full$legal) == 1)
+
+# split into control and experimental sets ------------------------------------
+dds_control = dds_full[,str_detect(dds_full$purpose,'control')]
+dds_experiment = dds_full[,dds_full$purpose == 'experiment']
+```
+
+## Create a sample-wise filter
+
+First, we remove samples with more than 0.08 intergenic reads. We also remove
+samples which are confidently mislabeled, but do not have an alternate match.
+
+Next, we design the following criteria to choose a single sample, where there
+are replicates. 'Meaningful reads' is here defined as the `protein_coding_total`
+minus the `rn7sl_total`.
+
+Our preference is for samples with the least percent intergenic reads.
+If the library with the least intergenic reads is less than 1e6 smaller than
+the library with the most meaningful reads, OR the library with the least
+intergenic reads is at least in the 20th percentile of the overall empirical
+cumulative distribution of meaningful reads, then choose the library with
+the least intergenic reads. Else, we choose the library with the most
+meaningful reads.
+
+We perform two checks to ensure that this filtering is correct. First, we
+confirm that the number of unique 'subject/visit's is the same in the original
+set and the subsequently filtered set. Second, we confirm that there is no
+more than 1 sample in each 'subject/visit' group.
+
+Below, we provide a minimal example
 
 ```{r}
-# split into control and experimental sets ------------------------------------
-dds_control = dds_full[,dds_full$purpose == 'control']
-dds_experiment = dds_full[,dds_full$purpose == 'experiment']
+library(tidyverse)
 
-# remove the full object and garbage collect -- this is important with the `tx` 
-# data because it is so large
-rm(dds_full)
-gc()
+# Create an example dataframe
+df <- data.frame(
+    library_id = seq(1:10),
+    subject = c('A', 'A', 'A', 
+                'A', 
+                'B', 'B',
+                'B', 
+                'C', 'C', 
+                'D'),
+    visit = c(1, 1, 1, 
+              2, 
+              1, 1, 
+              2, 
+              1, 1, 
+              1),
+    percent_intergenic = c(0.1, 0.15, 0.2, 
+                           0.2, 
+                           0.3, 0.1, 
+                           0.5, 
+                           0.4, 0.2, 
+                           0.15),
+    protein_coding_total = c(1e6, 9e6, 7e6, 
+                             7e6, 
+                             8e6, 8e6, 
+                             9e6, 
+                             6e6, 6e6, 
+                             7e6),
+    rn7sl_total = c(1e3, 9e4, 7e4, 
+                    7e2, 
+                    8e1, 8e2, 
+                    9e1, 
+                    6e2, 6e3, 
+                    7e4))
+
+passing_ids = df %>%
+  # add a column which stores the protein_coding_total quantile of a given
+  # library, calculated against the empirical cumulative distribution of
+  # protein_coding_total in the set
+  mutate(protein_coding_tmp = protein_coding_total-rn7sl_total) %>%
+  mutate(protein_coding_tmp_quantile =
+           ecdf(.$protein_coding_tmp)(protein_coding_tmp)) %>%
+  group_by(subject, visit) %>%
+  # Sort, within group, by percent_intergenic
+  arrange(percent_intergenic, .by_group = TRUE) %>%
+  mutate(protein_coding_tmp_max_diff = 
+             protein_coding_tmp[percent_intergenic==dplyr::first(percent_intergenic)][1] - 
+             protein_coding_tmp[protein_coding_tmp==max(protein_coding_tmp)][1]) %>%
+  mutate(
+      select_flag = if_else(
+          protein_coding_tmp_max_diff > -1e6 | 
+              dplyr::first(protein_coding_tmp_quantile) >= 0.2,
+          percent_intergenic == min(percent_intergenic),
+          protein_coding_tmp == max(protein_coding_tmp)
+      )) %>%
+  filter(select_flag) %>%
+  pull(library_id)
+
+# two checks:
+#   1. that the number of unique samples is the same before and after
+#   2. that no one group of subject/visit has size > 1
+
+stopifnot(length(passing_ids) == 
+            nrow(distinct(df, subject, visit)))
+
+stopifnot(df %>%
+            filter(library_id %in% passing_ids) %>%
+            group_by(subject,visit) %>%
+            filter(n()>1) %>%
+            nrow() == 0)
+```
+
+And this is how we filter the experiment data
+
+```{r}
+analysis_library_ids = colData(dds_experiment) %>%
+  as_tibble() %>%
+  # in the experiment set, a sample should either be mislabeled and relabeled
+  # or not mislabeled and not relabeled
+  filter(!suspicious_sex,relabel==mislabel, percent_intergenic < 0.08) %>%
+  mutate(protein_coding_minus_rn7sl = protein_coding_total - rn7sl_total) %>%
+  mutate(protein_coding_minus_rn7sl_quantile = 
+             ecdf(.$protein_coding_minus_rn7sl)(protein_coding_minus_rn7sl)) %>% 
+  group_by(subject, visit) %>%
+  arrange(percent_intergenic, .by_group = TRUE) %>% 
+  mutate(protein_coding_minus_rn7sl_max_diff = 
+             protein_coding_minus_rn7sl[percent_intergenic==dplyr::first(percent_intergenic)][1] - 
+             protein_coding_minus_rn7sl[protein_coding_minus_rn7sl==max(protein_coding_minus_rn7sl)][1]) %>%
+  mutate(
+      select_flag = if_else(
+          protein_coding_minus_rn7sl_max_diff > -1e6 | 
+              dplyr::first(protein_coding_minus_rn7sl_quantile) >= 0.2,
+          percent_intergenic == min(percent_intergenic),
+          protein_coding_minus_rn7sl == max(protein_coding_minus_rn7sl)
+      )) %>%
+  filter(select_flag) %>%
+  pull(library_id)
+
+stopifnot(length(analysis_library_ids) == 
+            nrow(distinct(as_tibble(colData(dds_experiment)) %>%
+                            filter(!suspicious_sex,
+                                   relabel==mislabel,
+                                   percent_intergenic < 0.08),
+                          subject, visit)))
+
+stopifnot(colData(dds_experiment) %>%
+            as_tibble() %>%
+            filter(library_id %in% analysis_library_ids) %>%
+            group_by(subject,visit) %>%
+            filter(n()>1) %>%
+            nrow() == 0)
 ```
 
 ## Create a gene-wise (expression) filter
 
 ```{r}
-# calculate what 15% of samples is for a given release
-num_samples = floor(ncol(dds_experiment)*.015)
+## Expression Filter
+
+# at the time of writing, num_samples comes out to 57
+num_samples = floor(ncol(dds_experiment[,dds_experiment$library_id %in%
+                                          analysis_library_ids])*.015)
 
 # filter out low expression genes
-mid_expression_filter <- rowSums(cpm(counts(dds_experiment))  > 3) >= num_samples
-```
-
-## Create a sample-wise filter
-
-We wish to filter out both (subject, visit) duplicates -- this can arise due 
-to either on-purpose re-dos of "bad" samples, or due to accidental mislabels 
-which create duplicate samples -- and those samples which fail QC. 
-
-```{r}
-
-## Deduplicate
-## duplications can occur due to sample re-dos, or due to relabelling
-## mislabelled samples
-dedup_ids = colData(dds_experiment) %>%
-  as_tibble() %>%
-  group_by(subject, visit) %>%
-  filter(percent_intergenic == min(percent_intergenic)) %>%
-  pull(sample_id)
-
-## Quality Filter ----
-
-# passing samples have less than 8% intergenic reads, do not express
-# the wrong sex chromosome according to their sample label, and are not
-# identified as mislabels from the RNA variant vs WGS DNA variant comparison.
-# Note that a sample labelled "mislabelled" is one whose variants clearly 
-# mismatched the WGS sample of the same subject identifier, but for which 
-# there was no obvious match also found in the WGS subject set
-qc_ids = colData(dds_experiment) %>%
-  as_tibble() %>%
-  # note the negation at the beginning of the conditional -- I find it easier
-  # to think about samples which are failing rather than the other way around
-  filter(!mislabelled, !suspicious_sex, percent_intergenic < 0.08) %>%
-  pull(sample_id)
-
-analysis_sample_ids = intersect(dedup_ids, qc_ids)
+mid_expression_filter <-
+  rowSums(cpm(counts(
+    dds_experiment[,dds_experiment$library_id %in%
+                     analysis_library_ids]))  > 3) >= num_samples
 ```
 
 ## Apply the filters and export plain text data
-
-Note that on my 30GB laptop, the tx data barely works -- max RAM goes up to 
-~28GB. Use a HPC or cloud service if you can. the `gc()` (garbage collector) 
-helps a bit to return some RAM to you when possible.
 
 ```{r}
 ## Apply Filters ----
@@ -152,17 +235,16 @@ helps a bit to return some RAM to you when possible.
 # filter the deseq data object on the rows (genes) and samples (column)
 dds_experiment_passing = 
   dds_experiment[mid_expression_filter, 
-                 dds_experiment$sample_id %in% analysis_sample_ids]
-gc()
+                 dds_experiment$library_id %in% analysis_library_ids]
+
 # add size factors to the dds object
 dds_experiment_passing = estimateSizeFactors(dds_experiment_passing)
-gc()
+
 # extract data from dds object ------------------------------------------------
 
-# note "unfltr" is still deduplicated
 output_list = list(
-  raw_unfltr_counts = as_tibble(counts(dds_experiment[,dds_experiment$sample_id %in% dedup_ids])),
-  unfltr_feature_id = tibble(gene_id = rownames(dds_experiment[,dds_experiment$sample_id %in% dedup_ids])),
+  raw_unfltr_counts = as_tibble(counts(dds_full)),
+  unfltr_feature_id = tibble(gene_id = rownames(dds_full)),
   raw_fltr_counts = as_tibble(counts(dds_experiment_passing)),
   norm_fltr_counts = as_tibble(counts(dds_experiment_passing, normalized=TRUE)),
   fltr_feature_id = tibble(gene_id = rownames(dds_experiment_passing))
@@ -187,7 +269,7 @@ if(WRITE){
   # metadata. Pay attention to this if you do want to re-write on the same
   # day
   if(!file.exists(sample_metadata_path)){
-    write_csv(as_tibble(colData(dds_experiment)), sample_metadata_path)
+    write_csv(as_tibble(colData(dds_full)), sample_metadata_path)
   }
 
   map(names(output_list),
