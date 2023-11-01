@@ -90,7 +90,7 @@ pca_sex_full
 
 ```
 
-```{r example_pca_plot_full, include=FALSE, eval=TRUE}
+```{r example_pca_plot_full, include=FALSE, eval=FALSE}
 #llfsRnaseq::pca_sex_qc$pca_sex_full
 ```
 
@@ -119,7 +119,7 @@ pca_sex_suspicious_labelled
 
 ```
 
-```{r example_pca_plot_labelled, include=FALSE, eval=TRUE}
+```{r example_pca_plot_labelled, include=FALSE, eval=FALSE}
 #llfsRnaseq::pca_sex_qc$pca_sex_suspicious_labelled
 ```
 
@@ -161,7 +161,7 @@ sex_1_suspicious_samples = suspicious_samples_data %>%
          inferred_sex,suspicious_sex, mislabel,relabel,notes)
 ```
 
-```{r example_sex1_mislabels, include=FALSE, eval=TRUE}
+```{r example_sex1_mislabels, include=FALSE, eval=FALSE}
 #llfsRnaseq::pca_sex_qc$sex_1_suspicious_samples
 sex_1_suspicious_samples
 
@@ -183,7 +183,7 @@ sex_2_suspicious_samples = suspicious_samples_data %>%
          relabel, notes)
 ```
 
-```{r example_sex2_mislabels, include=FALSE, eval=TRUE}
+```{r example_sex2_mislabels, include=FALSE, eval=FALSE}
 sex_2_suspicious_samples %>% 
   left_join(llfsRnaseq::pca_sex_qc$sex_2_suspicious_samples %>% 
               select(sample_id) %>% 
