@@ -80,9 +80,6 @@
     <li>
       <a href="../articles/creating-a-release.html">Setting filters and Exporting the Data</a>
     </li>
-    <li>
-      <a href="../articles/shared-data-overview.html">Shared Data Overview</a>
-    </li>
   </ul>
 </li>
 <li>
@@ -179,6 +176,10 @@ and/or otherwise manipulated data as if it were a table.</p>
 </h3>
 <p>This is the <strong>main LLFS metadata</strong> and is what is used
 to create the metadata in the LLFS RNA Seq data releases.</p>
+<p><strong>NOTE</strong>: In the release data, the column
+<code>count_headers</code> is added, which corresponds to the
+corresponding release’s plain text count data headers. It is formed by
+appending the string ‘library_’ to the <code>library_id</code>.</p>
 <details><summary>
 LLFS RNAseq Metadata View
 </summary><table class="table">

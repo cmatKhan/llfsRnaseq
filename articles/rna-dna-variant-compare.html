@@ -80,9 +80,6 @@
     <li>
       <a href="../articles/creating-a-release.html">Setting filters and Exporting the Data</a>
     </li>
-    <li>
-      <a href="../articles/shared-data-overview.html">Shared Data Overview</a>
-    </li>
   </ul>
 </li>
 <li>
@@ -134,50 +131,12 @@
 <div class="section level2">
 <h2 id="introduction">Introduction<a class="anchor" aria-label="anchor" href="#introduction"></a>
 </h2>
-<p>The goal is to call variants on the RNAseq librarys such that these
-variant loci can be used to match RNA librarys to WGS librarys. These
-are the papers/resources I used to get an idea of what the state of the
-art of calling variants from bulk RNAseq:</p>
-<ol style="list-style-type: decimal">
-<li><a href="https://gatk.broadinstitute.org/hc/en-us/articles/360035531192-RNAseq-short-variant-discovery-SNPs-Indels-" class="external-link">GATK
-Calling Variants from Bulk RNAseq</a></li>
-<li><a href="https://bcbio-nextgen.readthedocs.io/en/latest/contents/rnaseq_variants.html" class="external-link">bcbio
-bulk RNAseq variant calling pipeline</a></li>
-<li><a href="https://expert.cheekyscientist.com/how-to-do-variant-calling-from-rnaseq-ngs-data/" class="external-link">This
-personal blog which includes some variant level filtering
-suggestions</a></li>
-</ol>
-<p>The following are good papers on what to do with RNA variants. This
-is offered as hopefully a spur to pursue these methods:</p>
-<ol style="list-style-type: decimal">
-<li>
-<a href="https://genomebiology.biomedcentral.com/articles/10.1186/s13059-015-0762-6" class="external-link">Tools
-and best practices for data processing in allelic expression
-analysis</a>
-<ul>
-<li>This is from 2015, so it is worth checking against more recent
-papers. However, it seems still relevant, in particular the discussion
-on WASP and the alignment step in general.</li>
-</ul>
-</li>
-<li>
-<a href="https://www.science.org/doi/10.1126/science.aaz5900" class="external-link">Transcriptomic
-signatures across human tissues identify functional rare genetic
-variation</a>
-<ul>
-<li>That’s gold Jerry! Gold!</li>
-</ul>
-</li>
-<li><a href="https://academic.oup.com/bioinformatics/article/31/15/2497/187677?login=false" class="external-link">Assessing
-allele-specific expression across multiple tissues from RNA-seq read
-data</a></li>
-<li><a href="https://pubmed.ncbi.nlm.nih.gov/31834882/" class="external-link">Leveraging
-allelic imbalance to refine fine-mapping for eQTL studies</a></li>
-</ol>
-</div>
-<div class="section level2">
-<h2 id="procedure">Procedure<a class="anchor" aria-label="anchor" href="#procedure"></a>
-</h2>
+<p>RNA Variants are compared to the WGS data, and used to either confirm
+a given library’s label, or where possible find a better match, using
+the following procecure:</p>
+<div class="section level3">
+<h3 id="pre-processing">Pre-processing<a class="anchor" aria-label="anchor" href="#pre-processing"></a>
+</h3>
 <p>I use a modified version of the nf-core/rnavar RNA variant calling
 pipeline, which is based on the GATK protocol and uses their tools. You
 can find my modifications <a href="https://github.com/cmatKhan/rnavar/tree/bam_input" class="external-link">here</a>. This
@@ -187,14 +146,14 @@ from the alignment step. I process these in batches of no more than 30 –
 due to the way nextflow handles tracking intermediate data, and the
 number of times the bam files have to be manipulated, and therefore
 copied, the size of the <code>work</code> directory gets very large with
-smaller numbers of librarys.</p>
+smaller numbers of libraries.</p>
 <ol style="list-style-type: decimal">
-<li>Create an input librarysheet. An example of the <code>bam</code>
-input librarysheet can be found <a href="https://github.com/cmatKhan/llfsRnaseq/blob/main/inst/20230519.csv">here</a>.
+<li>Create an input samplesheet. An example of the <code>bam</code>
+input librariesheet can be found <a href="https://github.com/cmatKhan/llfsRnaseq/blob/main/inst/20230519.csv">here</a>.
 The rna variant calling work directory is large because the bams are
 copied multiple times as they are prepared for variant calling. I submit
 in sets of more more than 30, which ends up producing ~3 TB of
-intermediate data. Here is an example of creating librarysheets:</li>
+intermediate data. Here is an example of creating librariesheets:</li>
 </ol>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://tidyverse.tidyverse.org" class="external-link">tidyverse</a></span><span class="op">)</span></span>
@@ -211,7 +170,7 @@ intermediate data. Here is an example of creating librarysheets:</li>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">file_path</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span></span>
-<span>  <span class="st">"/mnt/scratch/llfs_variant_calling/librarysheet/"</span>,</span>
+<span>  <span class="st">"/mnt/scratch/llfs_variant_calling/librariesheet/"</span>,</span>
 <span>  <span class="va">set</span>,</span>
 <span>  <span class="st">".csv"</span></span>
 <span><span class="op">)</span></span>
@@ -236,11 +195,12 @@ to whatever long term storage you’re using (brentlab HTCF users, I use
 LTOS), make sure you tell the copy program to follow the symlinks and
 grab the actual file, for instance <code>--copy-links</code> using
 <code>rsync</code> or <code>-F</code> using <code>s3cmd</code>.</li>
-<li>Unless you’re doing 30 or less librarys, you’ll need to repeat this
+<li>Unless you’re doing 30 or less libraries, you’ll need to repeat this
 procedure in batches of ~30.</li>
 </ol>
+</div>
 <div class="section level3">
-<h3 id="labelled-library-same-same-comparisons">Labelled library (“same same”) comparisons<a class="anchor" aria-label="anchor" href="#labelled-library-same-same-comparisons"></a>
+<h3 id="comparing-libraries-against-their-original-labels">Comparing Libraries Against Their Original Labels<a class="anchor" aria-label="anchor" href="#comparing-libraries-against-their-original-labels"></a>
 </h3>
 <p>I first convert the RNA VCF files to GDS files and compare the
 variants on chr21 to the variants on chr21 on the DNA library of the
@@ -252,36 +212,53 @@ sbatch scripts and R scripts that I use are in the repo linked
 above.</p>
 </div>
 <div class="section level3">
-<h3 id="all-by-all-comparisons">All by all comparisons<a class="anchor" aria-label="anchor" href="#all-by-all-comparisons"></a>
+<h3 id="choosing-potential-mislabels">Choosing Potential Mislabels<a class="anchor" aria-label="anchor" href="#choosing-potential-mislabels"></a>
 </h3>
-<p>For librarys with more than 100 high quality variant sites that can
-be compared which have a ‘match ratio’, meaning total number of matching
-sites / total variant sites in the RNA for which good data exists in the
-DNA, greater than 94%, we consider these a ‘confirmed label’. However,
-for those that do not meet this criteria, we use the following steps to
-choose librarys to compare against all 4556 WGS librarys.</p>
-<ol style="list-style-type: decimal">
-<li><p>First, split the same-labelled comparison into a set of librarys
-with less than 100 total_variants and those with more on chr21.</p></li>
-<li><p>For librarys with greater than or equal to 100 total_variants, if
-the match ratio is less than .94, those librarys are compared against
-all 4556 (minus one) other WGS librarys on chr21.</p></li>
-<li><p>For librarys with a match greater than .9, which is greater than
-the original label, then we do a chi-squared test. If the best
-match_ratio is significantly better than the same label AND if the best
-match is significantly better than the second best relabel, then we
-re-label the library</p></li>
-<li><p>For librarys with less than 100 total variant sites, these will
-be compared along chr6 to increase the number of RNA variant sites over
-which there is WGS data. Note that we may choose a different chromosome,
-likely closer to chr1, to increase the number of variant sites with good
-data if necessary. chr6 is chosen becuase it has about half the gene
-density of chr1 and generally provides at least 100 variant sites for
-all libraries with less than .08 intergenic reads.</p></li>
-</ol>
+<p>For libraries with more than 100 high quality variant sites that can
+be compared which have a ‘match ratio’, meaning total number of
+<code>matching sites</code> / <code>total variant</code> sites in the
+RNA for which good data exists in the DNA, greater than 94%.</p>
 </div>
 <div class="section level3">
-<h3 id="compiling-and-parsing-the-results">Compiling and parsing the results<a class="anchor" aria-label="anchor" href="#compiling-and-parsing-the-results"></a>
+<h3 id="searching-for-better-matches">Searching for Better Matches<a class="anchor" aria-label="anchor" href="#searching-for-better-matches"></a>
+</h3>
+<p>For libraries with less than 100 high quality variant sites over
+which to evaluate the <code>match_ratio</code>, or for those with less
+than a 95% `match_ratio, we re-run the same comparison, but this time on
+chr6 and against all 4,556 WGS samples. Next, we summarize the results
+and determine if we can confidently relabel the sample using the
+following thresholds:</p>
+<p>For libraries with a match greater than or equal to 94%, if the
+empirical best match is the same as the label, then it is considered a
+confirmed sample.</p>
+<p>If the empirical best match is different than the label, then the
+sample is labeled a `mislabel’.</p>
+<p>If empirical best match has:</p>
+<ol style="list-style-type: decimal">
+<li>a <code>match_ratio</code> of &gt;=94%</li>
+<li>the pvalue that results from a chi-square test between the labelled
+match and the empirical best match is significant</li>
+<li>and the chi-square pvalue between the empirical best match and the
+second best match is significant</li>
+</ol>
+<p>then we relabel with the empirical best match. See the following
+tables:</p>
+<ul>
+<li><p><code>wgs_compare</code>: this stores the results of the same
+label comparisons</p></li>
+<li><p><code>full_wgs_compare</code>: this stores the summary statistics
+of the all by all comparisons</p></li>
+<li><p><code>filtered_wgs_compare</code>: a view of
+<code>full_wgs_compare</code> which includes the <code>mislabel</code>
+and <code>relabel</code> fields</p></li>
+<li><p><code>library_relabel_summary</code>: a view which provides a
+summary of all of the samples marked <code>mislabel</code> and/or
+<code>relabel</code></p></li>
+</ul>
+</div>
+<div class="section level3">
+<h3 id="examples-of-compiling-and-parsing-the-results-of-the-variant-comparisons">Examples of compiling and parsing the results of the variant
+comparisons<a class="anchor" aria-label="anchor" href="#examples-of-compiling-and-parsing-the-results-of-the-variant-comparisons"></a>
 </h3>
 <p>The first step for either the same-same comparison or the all-by-all
 comparison is to read in the data. If this is the same-same comparison,
@@ -304,7 +281,7 @@ database</p>
 <span><span class="co"># and then the batch_id could be used to join to library</span></span>
 <span><span class="co">#names(chr6_collected_metrics) = basename(dirname(chr6_collected_metrics))</span></span>
 <span></span>
-<span><span class="va">collected_metrics</span> <span class="op">=</span> <span class="st">'/mnt/scratch/llfs_rna_dna_compare_test/makeup_librarys/compiled_metrics.csv'</span></span>
+<span><span class="va">collected_metrics</span> <span class="op">=</span> <span class="st">'/mnt/scratch/llfs_rna_dna_compare_test/makeup_libraries/compiled_metrics.csv'</span></span>
 <span></span>
 <span><span class="va">collected_metrics_df_raw</span> <span class="op">=</span> <span class="fu"><a href="https://purrr.tidyverse.org/reference/map.html" class="external-link">map</a></span><span class="op">(</span><span class="va">collected_metrics</span>,<span class="va">read_csv</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/bind_rows.html" class="external-link">bind_rows</a></span><span class="op">(</span>.id<span class="op">=</span><span class="st">'batch_id'</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
@@ -341,8 +318,8 @@ database</p>
 <span>         <span class="va">matching_variants</span>,<span class="va">homo_expr_cand</span>, <span class="va">match_ratio</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># dbApppend(con,'wgs_compare',collected_metrics)</span></span></code></pre></div>
-<p>At this point, we would filter for librarys with less than .94 match
-ratio or less than 100 total variants, removing librarys that have
+<p>At this point, we would filter for libraries with less than .94 match
+ratio or less than 100 total variants, removing libraries that have
 percent_intergenic greater than .08, and submit the all-by-all
 comparison. Once that is finished, the data is parsed into a dataframe
 just as above. It is then summarized like so:</p>
@@ -360,7 +337,7 @@ just as above. It is then summarized like so:</p>
 <span>              <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>id <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">as.character</a></span><span class="op">(</span><span class="va">id</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>            by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">'fastq_id'</span><span class="op">=</span><span class="st">'id'</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
 <span>  <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/rename.html" class="external-link">rename</a></span><span class="op">(</span>rna_subject<span class="op">=</span><span class="va">subject</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> </span>
-<span>  <span class="fu">parse_all_by_all_compiled_results</span><span class="op">(</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="../reference/parse_all_by_all_compiled_results.html">parse_all_by_all_compiled_results</a></span><span class="op">(</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># dbAppendTable(con,'full_wgs_compare', all_by_all_summary)</span></span></code></pre></div>
 <p>auditing the results</p>
@@ -430,8 +407,48 @@ nf-core/rnavar pipeline outputs put vcf and gvcf files), combining them,
 and then using hte GATK joint variant caller. Doing this would allow the
 calculation of a kinship matrix, which may help further confirm the
 re-labelling, and also possibly identify and hopefully provide evidence
-for re-labelling mislabeled librarys which do not have WGS data.</p>
+for re-labelling mislabeled libraries which do not have WGS data.</p>
 </div>
+</div>
+<div class="section level2">
+<h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
+</h2>
+<ol style="list-style-type: decimal">
+<li><a href="https://gatk.broadinstitute.org/hc/en-us/articles/360035531192-RNAseq-short-variant-discovery-SNPs-Indels-" class="external-link">GATK
+Calling Variants from Bulk RNAseq</a></li>
+<li><a href="https://bcbio-nextgen.readthedocs.io/en/latest/contents/rnaseq_variants.html" class="external-link">bcbio
+bulk RNAseq variant calling pipeline</a></li>
+<li><a href="https://expert.cheekyscientist.com/how-to-do-variant-calling-from-rnaseq-ngs-data/" class="external-link">This
+personal blog which includes some variant level filtering
+suggestions</a></li>
+</ol>
+<p>The following are good papers on what to do with RNA variants. This
+is offered as hopefully a spur to pursue these methods:</p>
+<ol style="list-style-type: decimal">
+<li>
+<a href="https://genomebiology.biomedcentral.com/articles/10.1186/s13059-015-0762-6" class="external-link">Tools
+and best practices for data processing in allelic expression
+analysis</a>
+<ul>
+<li>This is from 2015, so it is worth checking against more recent
+papers. However, it seems still relevant, in particular the discussion
+on WASP and the alignment step in general.</li>
+</ul>
+</li>
+<li>
+<a href="https://www.science.org/doi/10.1126/science.aaz5900" class="external-link">Transcriptomic
+signatures across human tissues identify functional rare genetic
+variation</a>
+<ul>
+<li>That’s gold Jerry! Gold!</li>
+</ul>
+</li>
+<li><a href="https://academic.oup.com/bioinformatics/article/31/15/2497/187677?login=false" class="external-link">Assessing
+allele-specific expression across multiple tissues from RNA-seq read
+data</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/31834882/" class="external-link">Leveraging
+allelic imbalance to refine fine-mapping for eQTL studies</a></li>
+</ol>
 </div>
   </div>
 

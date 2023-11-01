@@ -86,9 +86,6 @@
     <li>
       <a href="articles/creating-a-release.html">Setting filters and Exporting the Data</a>
     </li>
-    <li>
-      <a href="articles/shared-data-overview.html">Shared Data Overview</a>
-    </li>
   </ul>
 </li>
 <li>
@@ -146,9 +143,12 @@
 <p>You can use this in a couple different ways, but the starting point for all of those ways is the <a href="https://cmatkhan.github.io/LLFS_RNAseq_dataprocessing/" class="external-link">served documentation</a>. I’d start with <a href="https://cmatkhan.github.io/llfsRnaseq/articles/llfsRnaseq.html" class="external-link"><strong>Getting Started</strong></a>, myself.</p>
 </div>
 <div class="section level1">
-<h1 id="why-use-deseqdatasetobjects">Why Use DESeqDAtaSetObjects<a class="anchor" aria-label="anchor" href="#why-use-deseqdatasetobjects"></a>
+<h1 id="why-use-deseqdatasetobjects">Why Use DESeqDataSetObjects<a class="anchor" aria-label="anchor" href="#why-use-deseqdatasetobjects"></a>
 </h1>
-<p>Even if you aren’t going to do differential expression analysis, it is useful to use the DESeqDataSet object. DESeqDataSet objects inherit from the base bioconductor object <a href="https://www.bioconductor.org/packages/devel/bioc/vignettes/SummarizedExperiment/inst/doc/SummarizedExperiment.html" class="external-link">SummarizedExperiment</a>. And, SummarizedExperiment is a core component of Bioconductor’s <a href="https://pubmed.ncbi.nlm.nih.gov/28018047/" class="external-link">Scalable Genomics Toolset</a>. Namely, in the <code>dds</code> object, there are 3 data attributes: the <code>rowRages</code>, which store the gencode v38 gene level gtf annotations as <a href="https://bioconductor.org/packages/release/bioc/vignettes/GenomicRanges/inst/doc/GenomicRangesIntroduction.html" class="external-link">GRanges</a>, and you can access row (gene) and column (sample) information, each of which are actually 2 dimensional arrays (or, a DataFrame in the case of the sample metadata). If you aren’t already familiar with using the Bioconductor core toolset, a little bit of learning about these objects goes a long way in terms of how easy it is to manipulate these data with these tools.</p>
+<p>Even if you aren’t going to do differential expression analysis using DESeq2, it is useful to use the DESeqDataSet object. DESeqDataSet objects inherit from the basebioconductor object <a href="https://www.bioconductor.org/packages/devel/bioc/vignettes/SummarizedExperiment/inst/doc/SummarizedExperiment.html" class="external-link">SummarizedExperiment</a>. And, <code>SummarizedExperiment</code> is a core component of Bioconductor’s <a href="https://pubmed.ncbi.nlm.nih.gov/28018047/" class="external-link">Scalable Genomics Toolset</a>.</p>
+<p>The LLFS <code>dds</code> object has the GRCh38 annotations stored in the <code>rowRanges</code>. The metadata rows also are forced to correspond to the count columns. So, you could choose a single gene in a single sample like this:</p>
+<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">dds</span><span class="op">[</span><span class="st">'ENSG....'</span>, <span class="va">dds</span><span class="op">$</span><span class="va">library_id</span><span class="op">==</span><span class="fl">2</span><span class="op">]</span></span></code></pre></div>
 <p># Some final notes</p>
 <p>if the <code>R CMD Check</code> CI is passing, that means that this package successfully builds on the latest Windows, latest Mac, and the two most current Ubuntu OS’s. If you are using one of these operating systems, then this will install on your system. If you are using an older, or different, OS, then there are no promises. Go ahead and open a bug report if this is the case, and I will create a Docker and/or singularity container for you.</p>
 </div>
