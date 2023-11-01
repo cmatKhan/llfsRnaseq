@@ -95,13 +95,12 @@ This should be treated as an intermediate table, though it is useful if you
 wish to associate the LLFS IDs with the samples.
 
 <details>
-<summary>LLFS RNAseq Metadata View</summary>
+<summary>LLFS metadata ID View</summary>
 
 | Field           | Purpose           | Datatype | Description                                               |
 |-----------------|-------------------|----------|-----------------------------------------------------------|
 | library_id      |                   | INTEGER  | The library ID (foreign key to the `library` table)         |
 | llfs_id         |                   | INTEGER  | The LLFS ID (see `whatdatall`)                              |
-
 | visit           |                   | TEXT     | Despite it not being an officially defined variable, visit is what is used in the fastqfilename. This must be translated to visitcode in order to join the RNAseq data on (subject,visitcode) to the rest of the LLFS phenotype data|
 | visitcode       |                   | TEXT     | The whatdatall LLFS phenotype visitcode value. See the visitcode_map table for details on how this is derived from visit |
 | data_dir        |                   | INTEGER  | This is the name of the data directory on dsg. See table `batch` |
