@@ -71,11 +71,6 @@ reference:
   - filter_dds_restimate_sizeFactors
   - project_counts_onto_orig_pcs
   - remove_parameter_effects
-- title: Package Data
-  desc: This section describes data objects which are installed along with
-    `llfsRnaseq`
-  contents:
-  - pca_sex_qc
 
 home:
   links:
