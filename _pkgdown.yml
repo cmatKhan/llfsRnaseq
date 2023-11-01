@@ -33,8 +33,6 @@ navbar:
       - text: Creating a release
       - text: Setting filters and Exporting the Data
         href: articles/creating-a-release.html
-      - text: Shared Data Overview
-        href: articles/shared-data-overview.html
     reference:
       text: API
       href: reference/index.html
@@ -71,6 +69,10 @@ reference:
   - filter_dds_restimate_sizeFactors
   - project_counts_onto_orig_pcs
   - remove_parameter_effects
+- title: Variant Comparison
+  desc: Functions used to compare RNA variant and WGS data
+  contents:
+  - parse_all_by_all_compiled_results
 
 home:
   links:
