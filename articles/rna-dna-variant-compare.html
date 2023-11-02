@@ -217,20 +217,18 @@ above.</p>
 <p>For libraries with more than 100 high quality variant sites that can
 be compared which have a ‘match ratio’, meaning total number of
 <code>matching sites</code> / <code>total variant</code> sites in the
-RNA for which good data exists in the DNA, greater than 94%.</p>
+RNA for which good data exists in the DNA, greater than 94%, the sample
+is called confidently correctly labelled. All others are moved on to
+comparison against all 4,556 WGS samples.</p>
 </div>
 <div class="section level3">
 <h3 id="searching-for-better-matches">Searching for Better Matches<a class="anchor" aria-label="anchor" href="#searching-for-better-matches"></a>
 </h3>
-<p>For libraries with less than 100 high quality variant sites over
-which to evaluate the <code>match_ratio</code>, or for those with less
-than a 95% `match_ratio, we re-run the same comparison, but this time on
-chr6 and against all 4,556 WGS samples. Next, we summarize the results
-and determine if we can confidently relabel the sample using the
-following thresholds:</p>
-<p>For libraries with a match greater than or equal to 94%, if the
-empirical best match is the same as the label, then it is considered a
-confirmed sample.</p>
+<p>For those libraries which fail to be called confidently correctly
+labelled, we re-run the same comparison, but this time on chr6 and
+against all 4,556 WGS samples. Next, we summarize the results and
+determine if we can confidently relabel the sample using the following
+thresholds:</p>
 <p>If the empirical best match is different than the label, then the
 sample is labeled a `mislabel’.</p>
 <p>If empirical best match has:</p>
