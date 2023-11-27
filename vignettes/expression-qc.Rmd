@@ -32,7 +32,7 @@ library(here)
 con = dbConnect(RSQLite::SQLite(), 
                 here("llfs_rnaseq_data/llfs_rnaseq_database.sqlite"))
 
-dds = readRDS(here("llfs_rnaseq_data/dds_20230713_gene.rds"))
+dds = readRDS(here("llfs_rnaseq_data/dds_gene_20231023.rds"))
 ```
 
 # Hemoglobin genes

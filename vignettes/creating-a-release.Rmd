@@ -35,7 +35,7 @@ library(here)
 # set environmental variables
 ## set to false to use gene level quantification, true to use
 ## tx level quantification
-TX_QUANTS = TRUE
+TX_QUANTS = FALSE
 ## determines whether data is written to the project data directory
 WRITE = TRUE
 
@@ -51,13 +51,13 @@ dds_list = list(
 if(TX_QUANTS){
   dds_full = readRDS(dds_list$tx)
   design(dds_full) = ~1
-  dds_full$count_headers = paste0('library_',dds_full$library_id)
-  colnames(dds_full) = dds_full$count_headers
+  # dds_full$count_headers = paste0('library_',dds_full$library_id)
+  # colnames(dds_full) = dds_full$count_headers
 } else {
   dds_full = readRDS(dds_list$gene)
   design(dds_full) = ~1
-  dds_full$count_headers = paste0('library_',dds_full$library_id)
-  colnames(dds_full) = dds_full$count_headers
+  # dds_full$count_headers = paste0('library_',dds_full$library_id)
+  # colnames(dds_full) = dds_full$count_headers
 }
 ```
 
@@ -238,16 +238,16 @@ dds_experiment_passing =
                  dds_experiment$library_id %in% analysis_library_ids]
 
 # add size factors to the dds object
+dds_full = estimateSizeFactors(dds_full)
 dds_experiment_passing = estimateSizeFactors(dds_experiment_passing)
 
 # extract data from dds object ------------------------------------------------
 
 output_list = list(
-  raw_unfltr_counts = as_tibble(counts(dds_full)),
-  unfltr_feature_id = tibble(gene_id = rownames(dds_full)),
-  raw_fltr_counts = as_tibble(counts(dds_experiment_passing)),
-  norm_fltr_counts = as_tibble(counts(dds_experiment_passing, normalized=TRUE)),
-  fltr_feature_id = tibble(gene_id = rownames(dds_experiment_passing))
+  raw_unfltr_counts = as_tibble(counts(dds_full), rownames='gene_id'),
+  norm_unfltr_counts = as_tibble(counts(dds_full, normalized=TRUE), rownames='gene_id'),
+  raw_fltr_counts = as_tibble(counts(dds_experiment_passing), rownames='gene_id'),
+  norm_fltr_counts = as_tibble(counts(dds_experiment_passing, normalized=TRUE), rownames='gene_id')
 )
 
 # write out -------------------------------------------------------------------
@@ -278,3 +278,190 @@ if(WRITE){
                            paste0(., add_sep, today, ".csv"))))
 }
 ```
+
+```{r}
+if(TX_QUANTS){
+  output_dir=here("llfs_rnaseq_data/plain_text/transpose/tx")
+} else{
+  output_dir=here("llfs_rnaseq_data/plain_text/transpose/gene")
+}
+
+dir.create(output_dir)
+unique_chrs = unique(as.character(seqnames(dds_experiment_passing)))
+
+extract_chr_norm_counts = function(chr,internal_dds){
+  
+  output_filepath=file.path(output_dir, paste0('norm_fltr_',chr,'.csv'))
+  if(!file.exists(output_filepath)){
+    
+    meta = colData(internal_dds) %>%
+      as_tibble() %>%
+      select(count_headers,subject,visit,visitcode) %>%
+      dplyr::rename(library_id = count_headers)
+    
+      message(sprintf('extracting: %s',chr))
+      tmp = internal_dds[seqnames(internal_dds) == chr,] %>%
+        counts(normalized=TRUE)
+      
+      if (nrow(tmp) == 0){
+        stop(sprintf('%s has no expressed genes', chr))
+      }
+      tmp = tmp %>%
+        as_tibble(rownames='gene_id') %>%
+        t()
+      
+      colnames(tmp) = tmp[1,]
+      
+      tmp[-1,] %>%
+        as_tibble(rownames='library_id') %>%
+      mutate(across(-1, as.double)) %>%
+      left_join(meta) %>%
+        select(library_id,subject,visit,visitcode,all_of(colnames(tmp))) %>%
+        write.csv(output_filepath,row.names = FALSE)
+    
+  }
+  
+}
+
+map(unique_chrs, extract_chr_norm_counts, dds_experiment_passing)
+
+```
+```{r}
+export_data = function(TX_QUANTS,WRITE){
+  library(tidyverse)
+library(DESeq2)
+library(edgeR)
+library(here)
+
+# read in data ----------------------------------------------------------------
+dds_list = list(
+  gene = here("llfs_rnaseq_data/dds_gene_20231023.rds"),
+  tx   = here("llfs_rnaseq_data/dds_tx_20231023.rds")
+)
+
+# note, clear out any design -- it isn't necessary for the manipulations below.
+# if you want to set the design, then change the formula below. Make sure to
+# cast any character fields to factors.
+if(TX_QUANTS){
+  dds_full = readRDS(dds_list$tx)
+  design(dds_full) = ~1
+  # dds_full$count_headers = paste0('library_',dds_full$library_id)
+  # colnames(dds_full) = dds_full$count_headers
+} else {
+  dds_full = readRDS(dds_list$gene)
+  design(dds_full) = ~1
+  # dds_full$count_headers = paste0('library_',dds_full$library_id)
+  # colnames(dds_full) = dds_full$count_headers
+}
+
+# ensure that all samples are ones for which there is legal permission
+stopifnot(unique(dds_full$legal) == 1)
+
+# split into control and experimental sets ------------------------------------
+dds_control = dds_full[,str_detect(dds_full$purpose,'control')]
+dds_experiment = dds_full[,dds_full$purpose == 'experiment']
+
+
+# sample filter
+analysis_library_ids = colData(dds_experiment) %>%
+  as_tibble() %>%
+  # in the experiment set, a sample should either be mislabeled and relabeled
+  # or not mislabeled and not relabeled
+  filter(!suspicious_sex,relabel==mislabel, percent_intergenic < 0.08) %>%
+  mutate(protein_coding_minus_rn7sl = protein_coding_total - rn7sl_total) %>%
+  mutate(protein_coding_minus_rn7sl_quantile = 
+             ecdf(.$protein_coding_minus_rn7sl)(protein_coding_minus_rn7sl)) %>% 
+  group_by(subject, visit) %>%
+  arrange(percent_intergenic, .by_group = TRUE) %>% 
+  mutate(protein_coding_minus_rn7sl_max_diff = 
+             protein_coding_minus_rn7sl[percent_intergenic==dplyr::first(percent_intergenic)][1] - 
+             protein_coding_minus_rn7sl[protein_coding_minus_rn7sl==max(protein_coding_minus_rn7sl)][1]) %>%
+  mutate(
+      select_flag = if_else(
+          protein_coding_minus_rn7sl_max_diff > -1e6 | 
+              dplyr::first(protein_coding_minus_rn7sl_quantile) >= 0.2,
+          percent_intergenic == min(percent_intergenic),
+          protein_coding_minus_rn7sl == max(protein_coding_minus_rn7sl)
+      )) %>%
+  filter(select_flag) %>%
+  pull(library_id)
+
+stopifnot(length(analysis_library_ids) == 
+            nrow(distinct(as_tibble(colData(dds_experiment)) %>%
+                            filter(!suspicious_sex,
+                                   relabel==mislabel,
+                                   percent_intergenic < 0.08),
+                          subject, visit)))
+
+stopifnot(colData(dds_experiment) %>%
+            as_tibble() %>%
+            filter(library_id %in% analysis_library_ids) %>%
+            group_by(subject,visit) %>%
+            filter(n()>1) %>%
+            nrow() == 0)
+
+# at the time of writing, num_samples comes out to 57
+num_samples = floor(ncol(dds_experiment[,dds_experiment$library_id %in%
+                                          analysis_library_ids])*.015)
+
+# filter out low expression genes
+mid_expression_filter <-
+  rowSums(cpm(counts(
+    dds_experiment[,dds_experiment$library_id %in%
+                     analysis_library_ids]))  > 3) >= num_samples
+
+# filter the deseq data object on the rows (genes) and samples (column)
+dds_experiment_passing = 
+  dds_experiment[mid_expression_filter, 
+                 dds_experiment$library_id %in% analysis_library_ids]
+
+dds_experiment_passing = estimateSizeFactors(dds_experiment_passing)
+
+if(TX_QUANTS){
+  output_dir=here("llfs_rnaseq_data/plain_text/transpose/tx")
+} else{
+  output_dir=here("llfs_rnaseq_data/plain_text/transpose/gene")
+}
+
+dir.create(output_dir)
+unique_chrs = unique(as.character(seqnames(dds_experiment_passing)))
+
+extract_chr_norm_counts = function(chr,internal_dds){
+  
+  output_filepath=file.path(output_dir, paste0('norm_fltr_',chr,'.csv'))
+  if(!file.exists(output_filepath)){
+    
+    meta = colData(internal_dds) %>%
+      as_tibble() %>%
+      select(count_headers,subject,visit,visitcode) %>%
+      dplyr::rename(library_id = count_headers)
+    
+      message(sprintf('extracting: %s',chr))
+      tmp = internal_dds[seqnames(internal_dds) == chr,] %>%
+        counts(normalized=TRUE)
+      
+      if (nrow(tmp) == 0){
+        stop(sprintf('%s has no expressed genes', chr))
+      }
+      tmp = tmp %>%
+        as_tibble(rownames='gene_id') %>%
+        t()
+      
+      colnames(tmp) = tmp[1,]
+      
+      tmp[-1,] %>%
+        as_tibble(rownames='library_id') %>%
+      mutate(across(-1, as.double)) %>%
+      left_join(meta) %>%
+        select(library_id,subject,visit,visitcode,all_of(colnames(tmp))) %>%
+        write.csv(output_filepath,row.names = FALSE)
+    
+  }
+  
+}
+
+map(unique_chrs, extract_chr_norm_counts, dds_experiment_passing)
+
+}
+```
+

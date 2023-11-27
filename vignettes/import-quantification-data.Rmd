@@ -50,34 +50,38 @@ library(here)
 
 # set variables
 
-WRITE = FALSE
+WRITE = TRUE
 
-FORMULA = ~batch_alias+sex
+FORMULA = ~batch+sex
 
 # whether to create the gene or tx level object. set to TRUE for tx
-TX = FALSE 
+TX = TRUE
 
 # load data --------------------------------------------------------------------
 
+con = RSQLite::dbConnect(RSQLite::SQLite(),here("llfs_rnaseq_data/llfs_rnaseq_database.sqlite"))
+
 txi_list = list(
-  gene = here('llfs_rnaseq_data/txi_genes_20230710.rds'),
-  tx = here('llfs_rnaseq_data/txi_tx_20230710.rds')
+  gene = here('/scratch/mblab/chasem/data/txi_combined_gene_20231023_final.rds'),
+  tx = here('/scratch/mblab/chasem/data/txi_combined_tx_20231023_final.rds')
 )
 
 if(TX){
   txi = readRDS(txi_list$tx)
-  DDS_OUTPUT = here("llfs_rnaseq_data/dds_20220710_tx.rds")
+  DDS_LEGAL_OUTPUT = "/scratch/mblab/chasem/data/dds_tx_legal_20231023_final.rds"
 
 } else{
   txi = readRDS(txi_list$gene)
-  DDS_OUTPUT = here("llfs_rnaseq_data/dds_20220710_gene.rds")
+  DDS_LEGAL_OUTPUT = "/scratch/mblab/chasem/data/dds_gene_legal_20231023_final.rds"
 }
 
-meta_df = read_csv(here("llfs_rnaseq_data/rnaseq_metadata_20230713.csv")) %>%
-  mutate(count_headers = paste0('sample_', library_id),
+meta_df = tbl(con,'llfs_metadata_subject') %>%
+  mutate(subject = as.character(subject),
+         visitcode=as.character(visitcode)) %>%
+  collect() %>%
+  mutate(count_headers = paste0('library_', library_id),
          sex = as.character(sex)) %>%
-  replace_na(list(sex='control')) %>%
-  mutate(batch_alias = factor(batch_alias),
+  mutate(batch = factor(batch),
          sex = factor(sex))
 
 setdiff1 = length(setdiff(meta_df$count_headers, colnames(txi$abundance)))
@@ -92,7 +96,7 @@ txi$length = txi$length[,meta_df$count_headers]
 stopifnot(identical(meta_df$count_headers, colnames(txi$abundance)))
 
 # add row ranges
-gencode_38 = readRDS(here("llfs_rnaseq_data/gencode.v38_gtf_granges.rds")) 
+gencode_38 = readRDS("/ref/mblab/data/human/GRCh38/gencode/v38/gencode.v38.annotation_granges.rds") 
 # rtracklayer::import("/ref/mblab/llfs_rnaseq_data/human/GRCh38/gencode/v38/gencode.v38.annotation.gtf")
 
 # filter the annotations depending on whether gene or tx quants
@@ -124,11 +128,12 @@ rownames(dds) = rownames(txi$abundance)
 colnames(dds) = dds$count_headers
 
 # remove samples for which we do not have legal permission
-dds_legal = dds[,dds$legal == 'yes']
+dds_legal = dds[,dds$legal == 1]
 
 
 if(WRITE){
-  write_rds(dds, DDS_OUTPUT)
+  #write_rds(dds,DDS_FULL_OUTPUT)
+  write_rds(dds_legal,DDS_LEGAL_OUTPUT)
 }
 
 
